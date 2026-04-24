@@ -126,10 +126,11 @@ export const registerLogsRoutes = (app: Hono, context: AppContext): void => {
     return ctx.json({ success: true });
   });
 
-  app.get("/events", async (_ctx) => {
+  app.get("/events", async (ctx) => {
+    const signal = ctx.req.raw.signal;
     const stream = streamAsyncStrings(
       (async function* (): AsyncGenerator<string> {
-        for await (const event of context.eventManager.subscribe()) {
+        for await (const event of context.eventManager.subscribe("default", signal)) {
           yield event.toSse();
         }
       })()
@@ -143,16 +144,18 @@ export const registerLogsRoutes = (app: Hono, context: AppContext): void => {
     const sessionId = assertSafeSessionId(ctx.req.param("sessionId"));
     const replayLimit = Math.min(Math.max(Number(ctx.req.query("tail") ?? 2000), 0), 20000);
     const path = resolveExistingLogPath(context.config.data_dir, sessionId);
+    const signal = ctx.req.raw.signal;
     const stream = streamAsyncStrings(
       (async function* (): AsyncGenerator<string> {
         if (path && replayLimit > 0) {
           const lines = tailFileLines(path, replayLimit);
           for (const line of lines) {
             if (!line) continue;
+            if (signal.aborted) return;
             yield new Event(CONTROLLER_EVENTS.LOG, { session_id: sessionId, line }).toSse();
           }
         }
-        for await (const event of context.eventManager.subscribe(`logs:${sessionId}`)) {
+        for await (const event of context.eventManager.subscribe(`logs:${sessionId}`, signal)) {
           yield event.toSse();
         }
       })()

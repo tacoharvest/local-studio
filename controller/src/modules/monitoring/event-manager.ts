@@ -34,7 +34,7 @@ export class EventManager {
   private readonly lock = new AsyncLock();
   private eventCount = 0;
 
-  public async *subscribe(channel = "default"): AsyncIterable<Event> {
+  public async *subscribe(channel = "default", signal?: AbortSignal): AsyncIterable<Event> {
     const queue = new AsyncQueue<Event>(100);
     const release = await this.lock.acquire();
     try {
@@ -47,15 +47,17 @@ export class EventManager {
 
     try {
       while (true) {
-        const event = await queue.shift();
-        if (!event) {
+        if (signal?.aborted) break;
+        let event: Event;
+        try {
+          event = await queue.shift(signal);
+        } catch {
           break;
         }
         yield event;
       }
-    } catch {
-      queue.close();
     } finally {
+      queue.close();
       const releaseCleanup = await this.lock.acquire();
       try {
         const existing = this.subscribers.get(channel);
