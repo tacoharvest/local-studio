@@ -83,6 +83,9 @@ scripts/*.local.sh
 .pi/
 .ralph/
 
+# Reference-only copy of the previous controller (superseded by controller/)
+controller-legacy/
+
 # Sensitive data - do not commit specific IPs or domains
 # Use environment variables or config files instead
 refactory/

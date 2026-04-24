@@ -4,7 +4,7 @@ import { hostname } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import type { AppContext } from "../../../types/context";
-import type { HealthResponse, SystemConfigResponse } from "../types";
+import type { SystemConfigResponse } from "../types";
 import { badRequest, notFound } from "../../../core/errors";
 import { estimateWeightsSizeBytes } from "../../models/model-browser";
 import { getGpuInfo } from "../platform/gpu";
@@ -43,30 +43,6 @@ export const registerSystemRoutes = (app: Hono, context: AppContext): void => {
       socket.once("error", () => finalize(false));
     });
   };
-
-  app.get("/health", async (ctx) => {
-    const current = await context.processManager.findInferenceProcess(
-      context.config.inference_port
-    );
-    let inferenceReady = false;
-    if (current) {
-      try {
-        const response = await fetchInference(context, "/health", { timeoutMs: 5000 });
-        inferenceReady = response.status === 200;
-      } catch {
-        inferenceReady = false;
-      }
-    }
-
-    const payload: HealthResponse = {
-      status: "ok",
-      version: "0.3.1",
-      inference_ready: inferenceReady,
-      backend_reachable: inferenceReady,
-      running_model: current ? (current.served_model_name ?? current.model_path ?? null) : null,
-    };
-    return ctx.json(payload);
-  });
 
   app.get("/status", async (ctx) => {
     const current = await context.processManager.findInferenceProcess(

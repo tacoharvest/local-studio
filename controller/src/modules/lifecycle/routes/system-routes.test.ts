@@ -94,17 +94,6 @@ describe("System Routes", () => {
     globalThis.fetch = originalFetch;
   });
 
-  describe("GET /health", () => {
-    it("returns health status", async () => {
-      const res = await app.request("/health");
-      expect(res.status).toBe(200);
-
-      const json = await res.json();
-      expect(json).toHaveProperty("status");
-      expect(json).toHaveProperty("inference_ready");
-    });
-  });
-
   describe("GET /gpus", () => {
     it("returns GPU information", async () => {
       const res = await app.request("/gpus");

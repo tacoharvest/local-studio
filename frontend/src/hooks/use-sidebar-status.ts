@@ -103,15 +103,10 @@ function updateFromLaunchProgressPayload(payload: Record<string, unknown>) {
 }
 
 async function fetchNow() {
-  const [healthResult, statusResult] = await Promise.allSettled([
-    api.getHealth(FAST_STATUS_REQUEST),
-    api.getStatus(FAST_STATUS_REQUEST),
-  ]);
+  const statusResult = await Promise.allSettled([api.getStatus(FAST_STATUS_REQUEST)]);
+  const status = statusResult[0].status === "fulfilled" ? statusResult[0].value : null;
 
-  const health = healthResult.status === "fulfilled" ? healthResult.value : null;
-  const status = statusResult.status === "fulfilled" ? statusResult.value : null;
-
-  if (!health && !status) {
+  if (!status) {
     const nextBase: InternalState = {
       ...state,
       online: false,
@@ -127,15 +122,11 @@ async function fetchNow() {
   }
 
   const inferenceOnline = Boolean(status?.running || status?.process);
-  const model =
-    computeModelName(status?.process ?? null) ??
-    (typeof health?.running_model === "string"
-      ? (health.running_model.split("/").pop() ?? health.running_model)
-      : null);
+  const model = computeModelName(status?.process ?? null);
 
   const nextBase: InternalState = {
     ...state,
-    online: health ? health.status === "ok" : true,
+    online: true,
     inferenceOnline,
     model: model ?? state.model,
     lastUpdateAt: Date.now(),

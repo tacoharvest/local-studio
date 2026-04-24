@@ -50,14 +50,6 @@ export interface LaunchResult {
   log_file: string | null;
 }
 
-export interface HealthResponse {
-  status: string;
-  version: string;
-  inference_ready: boolean;
-  backend_reachable: boolean;
-  running_model: string | null;
-}
-
 export interface GpuInfo {
   index: number;
   name: string;

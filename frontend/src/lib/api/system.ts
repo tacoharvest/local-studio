@@ -3,7 +3,6 @@ import type {
   CompatibilityReport,
   ConfigData,
   GPU,
-  HealthResponse,
   Metrics,
   ProcessInfo,
   UsageStats,
@@ -13,9 +12,6 @@ import type { ApiCore, RequestOptions } from "./core";
 
 export function createSystemApi(core: ApiCore) {
   return {
-    getHealth: (options?: RequestOptions): Promise<HealthResponse> =>
-      core.request("/health", options),
-
     launch: (
       recipeId: string,
       force = false,

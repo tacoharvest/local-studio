@@ -107,7 +107,7 @@ export function useConfigs() {
         setStatusMessage("Missing API URL");
         return;
       }
-      const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/health`);
+      const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/status`);
       if (res.ok) {
         setConnectionStatus("connected");
         setStatusMessage("Connected");
@@ -125,9 +125,9 @@ export function useConfigs() {
 
   const checkBackendHealth = async () => {
     try {
-      const health = await api.getHealth(FAST_STATUS_REQUEST);
-      setBackendOnline(health.status === "ok");
-      return health.status === "ok";
+      await api.getStatus(FAST_STATUS_REQUEST);
+      setBackendOnline(true);
+      return true;
     } catch {
       setBackendOnline(false);
       return false;

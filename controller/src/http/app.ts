@@ -45,7 +45,7 @@ export const createApp = (context: AppContext): Hono => {
   );
 
   app.use("*", async (ctx, next) => {
-    const skip = new Set(["/health", "/metrics", "/events", "/status", "/api/docs", "/api/spec"]);
+    const skip = new Set(["/metrics", "/events", "/status", "/api/docs", "/api/spec"]);
     if (!skip.has(ctx.req.path)) {
       context.logger.debug(`${ctx.req.method} ${ctx.req.path}`);
     }

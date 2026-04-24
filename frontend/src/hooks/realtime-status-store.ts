@@ -147,31 +147,6 @@ async function fetchStatusNow() {
       jobs: snapshot.jobs,
       lastEventAt: Date.now(),
     });
-    return;
-  }
-
-  try {
-    const health = await api.getHealth(FAST_STATUS_REQUEST);
-    if (health?.status === "ok") {
-      emitIfChanged({
-        status: snapshot.status ?? {
-          running: false,
-          process: null,
-          inference_port: 8000,
-        },
-        gpus: snapshot.gpus,
-        metrics: snapshot.metrics,
-        launchProgress: snapshot.launchProgress,
-        platformKind: snapshot.platformKind,
-        runtimeSummary: snapshot.runtimeSummary,
-        services: snapshot.services,
-        lease: snapshot.lease,
-        jobs: snapshot.jobs,
-        lastEventAt: Date.now(),
-      });
-    }
-  } catch {
-    // ignore; keep last known values
   }
 }
 
