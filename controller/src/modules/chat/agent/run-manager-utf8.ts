@@ -1,6 +1,5 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import { cleanUtf8StreamContent } from "../../proxy/proxy-parsers";
-import type { Utf8State } from "../../proxy/types";
+import { cleanUtf8StreamContent, type Utf8State } from "../../../core/utf8";
 import type { AssistantMessage } from "./pi-agent-types";
 
 export type MessageCleaner = (message: AgentMessage) => void;

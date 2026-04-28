@@ -12,12 +12,14 @@ import {
   resolveProviderConfig,
 } from "../../services/provider-routing";
 import {
-  createToolCallStream,
   normalizeChatMessageContentParts,
+  normalizeToolRequest,
+} from "./content-normalizer";
+import {
   normalizeReasoningAndContentInMessage,
   normalizeToolCallsInMessage,
-  normalizeToolRequest,
-} from "./tool-call-core";
+} from "./reasoning-extractor";
+import { createToolCallStream } from "./tool-call-stream";
 
 type OpenAIUsage = Record<string, number>;
 

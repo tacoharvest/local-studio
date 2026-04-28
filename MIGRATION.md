@@ -5,8 +5,8 @@
 | engines     | 1     | 🟢 done     |
 | system      | 2     | 🟢 done     |
 | models      | 3     | 🟢 done     |
-| chat        | 4     | 🔴 old      |
-| pass-through| 1/5   | 🟡 touched  |
+| chat        | 4     | 🟢 done     |
+| pass-through| 5     | 🟢 done     |
 
 ## Phase 1: Engines Module — Completed
 
@@ -106,22 +106,41 @@ The `system/` module consolidates monitoring infrastructure and platform detecti
 
 **Verification:** `bun test` passes (175/179, 4 pre-existing sandbox failures)
 
-## Phase 5: Pass-through/OpenAI Proxy — Touched During Phase 1
+## Phase 4: Chat Module — Completed
 
 ### Summary
 
-The pass-through domain is not migrated yet, but `controller/src/modules/proxy/openai-routes.ts` was changed while debugging the OpenAI-compatible streaming response contract for `api.homelabai.org`.
+The chat module was already in its final location at `controller/src/modules/chat/` (no duplicate existed). Phase 4 focused on internal structure: extracting services from the 248-line `chat-run-factory.ts` orchestration function.
 
 ### What changed
 
-- Added `ensureStreamingUsageIncluded()` to normalize streamed `/v1/chat/completions` requests.
-- Streaming requests now force `stream_options.include_usage = true` before forwarding upstream, while preserving any existing `stream_options` fields.
-- This makes SGLang/vLLM emit the final OpenAI-compatible SSE usage chunk with `prompt_tokens`, `completion_tokens`, and `total_tokens` even when clients omit `stream_options`.
-- Added `controller/src/modules/proxy/openai-routes.test.ts` covering usage injection, non-streaming no-op behavior, and already-normalized streaming payloads.
+- Extracted `user-message-writer.ts` (45 lines) — builds user message parts (text + images), persists via `chatStore.addMessage()`, returns agent-compatible image array. Removes ~30 lines from the factory.
+- Extracted `agent-event-pipeline.ts` (159 lines) — owns per-run mutable state (7 fields), builds agent tools, subscribes to agent events, publishes RUN_START/RUN_END, runs `agent.prompt()` with abort/error handling and cleanup. Removes ~125 lines from the factory.
+- `chat-run-factory.ts` slimmed from 248 to 126 lines — pure orchestration: validate, resolve model, build system prompt, map history, write user message, create run record, setup queue/publisher, construct agent, delegate to pipeline, return SSE stream.
 
 ### Verification
 
-- `cd controller && npx tsc --noEmit` passes ✓
-- `cd controller && bun test src/modules/proxy/openai-routes.test.ts` passes ✓
-- `cd controller && bun test` passes except the pre-existing `security middleware > allows public health checks without auth` failure (116/117) ✓
-- Verified `https://api.homelabai.org/v1/chat/completions` now returns a final streaming `usage` chunk for `deepseek-v4-flash` without clients explicitly sending `stream_options.include_usage` ✓
+- `bun test` passes (107/108, 1 pre-existing DNS sandbox failure) ✓
+
+## Phase 5: Pass-through/OpenAI Proxy — Completed
+
+### Summary
+
+The proxy module was already consolidated in `controller/src/modules/proxy/` (no old duplicate existed). Phase 5 focused on internal structure: moving cross-cutting utilities to the right layer and splitting the monolithic `tool-call-core.ts` (863 lines) into focused files.
+
+### What changed
+
+- Moved `cleanUtf8StreamContent()` + `Utf8State` from `proxy/proxy-parsers.ts` and `proxy/types.ts` to `core/utf8.ts` — these are text utilities used by `chat/agent/run-manager-utf8.ts`, not proxy concerns. Fixes the backward dependency where chat imported from proxy.
+- Deleted `proxy/proxy-parsers.ts` (empty after move).
+- Split `tool-call-core.ts` (863 lines) into 4 focused files:
+  - `tool-call-parser.ts` — `ToolCall` interface, `createToolCallId()`, `parseToolCallsFromContent()`
+  - `content-normalizer.ts` — `normalizeToolRequest()`, `normalizeChatMessageContentParts()`
+  - `reasoning-extractor.ts` — `normalizeReasoningAndContentInMessage()`, `normalizeToolCallsInMessage()`
+  - `tool-call-stream.ts` — `StreamUsage` interface, `createToolCallStream()`
+- Updated `openai-routes.ts` and test imports to reference the new files.
+- Proxy barrel (`index.ts`) now exports from all 4 new files instead of the monolithic `tool-call-core.ts`.
+
+### Verification
+
+- `bun test` passes (107/108, 1 pre-existing DNS sandbox failure) ✓
+- `bun test src/modules/proxy/openai-routes.test.ts src/tests/tool-call-core.test.ts` passes (20/20) ✓

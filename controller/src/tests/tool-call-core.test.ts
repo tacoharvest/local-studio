@@ -1,6 +1,7 @@
 // CRITICAL
 import { describe, expect, it } from "bun:test";
-import { createToolCallStream, parseToolCallsFromContent } from "../modules/proxy/tool-call-core";
+import { createToolCallStream } from "../modules/proxy/tool-call-stream";
+import { parseToolCallsFromContent } from "../modules/proxy/tool-call-parser";
 
 const collectStream = async (stream: ReadableStream<Uint8Array>): Promise<string> => {
   const reader = stream.getReader();
@@ -377,7 +378,7 @@ describe("tool-call-core", () => {
 
 describe("normalizeChatMessageContentParts", () => {
   it("collapses OpenAI text content arrays for text-only local backends", async () => {
-    const { normalizeChatMessageContentParts } = await import("../modules/proxy/tool-call-core");
+    const { normalizeChatMessageContentParts } = await import("../modules/proxy/content-normalizer");
     const payload: Record<string, unknown> = {
       messages: [
         {
@@ -401,7 +402,7 @@ describe("normalizeChatMessageContentParts", () => {
   });
 
   it("leaves multimodal arrays intact", async () => {
-    const { normalizeChatMessageContentParts } = await import("../modules/proxy/tool-call-core");
+    const { normalizeChatMessageContentParts } = await import("../modules/proxy/content-normalizer");
     const content = [
       { type: "text", text: "describe" },
       { type: "image_url", image_url: { url: "data:image/png;base64,abc" } },

@@ -1,12 +1,7 @@
-// CRITICAL
-import type { Utf8State } from "./types";
-/**
- * Helpers for cleaning streamed text that may be split at arbitrary boundaries.
- *
- * In practice, some upstream streams can cut between UTF-16 surrogate pairs,
- * producing invalid strings. We buffer a trailing high-surrogate and prepend it
- * to the next chunk.
- */
+export type Utf8State = {
+  pendingContent: string;
+  pendingReasoning: string;
+};
 
 const isHighSurrogate = (code: number): boolean => code >= 0xd800 && code <= 0xdbff;
 const isLowSurrogate = (code: number): boolean => code >= 0xdc00 && code <= 0xdfff;
@@ -24,7 +19,6 @@ export function cleanUtf8StreamContent(chunk: string, state: Utf8State): string 
 
   if (!text) return text;
 
-  // If we somehow start with an unpaired low surrogate, drop it.
   const first = text.charCodeAt(0);
   if (isLowSurrogate(first)) {
     text = text.slice(1);
