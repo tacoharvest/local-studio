@@ -1,15 +1,15 @@
 import type { Config } from "../config/env";
 import type { Logger } from "../core/logger";
-import type { EventManager } from "../modules/monitoring/event-manager";
+import type { EventManager } from "../modules/system/event-manager";
 import type { LaunchState } from "../modules/engines/layers/launch-state";
-import type { ControllerMetrics, MetricsRegistry } from "../modules/monitoring/metrics";
+import type { ControllerMetrics, MetricsRegistry } from "../modules/system/metrics";
 import type { ProcessManager } from "../modules/engines/layers/process-manager";
 import type { EngineCoordinator } from "../modules/engines/layers/engine-coordinator";
 import type { DownloadManager } from "../modules/engines/layers/download-manager";
 import type { ChatRunOptions, ChatRunStream } from "../modules/chat/agent/run-manager-types";
 import type { ChatStore } from "../modules/chat/store";
 import type { DownloadStore } from "../modules/engines/layers/download-store";
-import type { LifetimeMetricsStore, PeakMetricsStore } from "../modules/monitoring/metrics-store";
+import type { LifetimeMetricsStore, PeakMetricsStore } from "../modules/system/metrics-store";
 import type { RecipeStore } from "../modules/lifecycle/recipes/recipe-store";
 import type { JobStore } from "../stores/job-store";
 import type { JobType } from "../modules/jobs/types";

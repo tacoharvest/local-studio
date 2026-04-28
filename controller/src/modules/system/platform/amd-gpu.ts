@@ -1,5 +1,5 @@
 // CRITICAL
-import type { GpuInfo } from "../types";
+import type { GpuInfo } from "../../lifecycle/types";
 import { runCommand } from "../../../core/command";
 import { resolveAmdSmiBinary, resolveRocmSmiBinary } from "./smi-tools";
 

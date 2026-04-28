@@ -3,28 +3,19 @@ import { connect } from "node:net";
 import { hostname } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import type { AppContext } from "../../../types/context";
-import type { SystemConfigResponse } from "../types";
-import { badRequest, notFound } from "../../../core/errors";
-import { estimateWeightsSizeBytes } from "../../models/model-browser";
-import { getGpuInfo } from "../platform/gpu";
-import { getSystemRuntimeInfo } from "../../engines/layers/runtime-info";
-import { buildCompatibilityReport } from "../platform/compatibility-report";
-import { fetchLocal } from "../../../http/local-fetch";
+import type { AppContext } from "../../types/context";
+import type { SystemConfigResponse } from "../lifecycle/types";
+import { badRequest, notFound } from "../../core/errors";
+import { estimateWeightsSizeBytes } from "../models/model-browser";
+import { getGpuInfo } from "./platform/gpu";
+import { getSystemRuntimeInfo } from "../engines/layers/runtime-info";
+import { buildCompatibilityReport } from "./platform/compatibility-report";
+import { fetchLocal } from "../../http/local-fetch";
+import { registerMonitoringRoutes } from "./metrics-routes";
+import { registerLogsRoutes } from "./logs-routes";
+import { registerUsageRoutes } from "./usage-routes";
 
-/**
- * Register system routes.
- * @param app - Hono application.
- * @param context - App context.
- */
 export const registerSystemRoutes = (app: Hono, context: AppContext): void => {
-  /**
-   * Check if a TCP service is reachable.
-   * @param host - Hostname.
-   * @param port - Port number.
-   * @param timeoutMs - Timeout in ms.
-   * @returns Promise resolving to availability.
-   */
   const checkService = (host: string, port: number, timeoutMs = 1000): Promise<boolean> => {
     return new Promise((resolve) => {
       const socket = connect({ port, host });
@@ -294,4 +285,8 @@ export const registerSystemRoutes = (app: Hono, context: AppContext): void => {
 
     return ctx.json(payload);
   });
+
+  registerMonitoringRoutes(app, context);
+  registerLogsRoutes(app, context);
+  registerUsageRoutes(app, context);
 };

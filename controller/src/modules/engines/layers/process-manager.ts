@@ -16,7 +16,7 @@ import {
 } from "../../../core/log-files";
 import type { Logger } from "../../../core/logger";
 import type { LaunchResult, ProcessInfo, Recipe } from "../../lifecycle/types";
-import type { EventManager } from "../../monitoring/event-manager";
+import type { EventManager } from "../../system/event-manager";
 import { buildBackendCommand } from "./backend-builder";
 import {
   buildEnvironment,

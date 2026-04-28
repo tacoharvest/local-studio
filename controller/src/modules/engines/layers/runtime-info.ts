@@ -4,12 +4,12 @@ import { resolve } from "node:path";
 import type { ProcessInfo, RuntimeBackendInfo, RuntimeCudaInfo, RuntimePlatformInfo, RuntimePlatformKind, RuntimeTorchBuildInfo, SystemRuntimeInfo } from "../../lifecycle/types";
 import type { Config } from "../../../config/env";
 import { resolveBinary, runCommand } from "../../../core/command";
-import { getGpuInfo } from "../../lifecycle/platform/gpu";
+import { getGpuInfo } from "../../system/platform/gpu";
 import { getVllmRuntimeInfo } from "./vllm-runtime";
-import { probeGpuMonitoring } from "../../lifecycle/platform/compatibility-report";
-import { getRocmInfo, resolveRocmSmiTool } from "../../lifecycle/platform/rocm-info";
-import { resolveNvidiaSmiBinary } from "../../lifecycle/platform/smi-tools";
-import { getTorchBuildInfo } from "../../lifecycle/platform/torch-info";
+import { probeGpuMonitoring } from "../../system/platform/compatibility-report";
+import { getRocmInfo, resolveRocmSmiTool } from "../../system/platform/rocm-info";
+import { resolveNvidiaSmiBinary } from "../../system/platform/smi-tools";
+import { getTorchBuildInfo } from "../../system/platform/torch-info";
 import { resolveVllmPythonPath } from "./vllm-python-path";
 import { isUpgradeCommandConfigured, CUDA_UPGRADE_ENV, LLAMACPP_UPGRADE_ENV } from "./upgrade-config";
 

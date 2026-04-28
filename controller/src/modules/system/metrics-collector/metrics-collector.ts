@@ -5,8 +5,8 @@ import { getSystemRuntimeInfo } from "../../engines/layers/runtime-info";
 import { delay } from "../../../core/async";
 import { listLogFiles, resolveExistingLogPath, tailFileLines } from "../../../core/log-files";
 import { fetchLocal } from "../../../http/local-fetch";
-import { isRecipeRunning } from "../recipes/recipe-matching";
-import type { ProcessInfo, Recipe } from "../types";
+import { isRecipeRunning } from "../../lifecycle/recipes/recipe-matching";
+import type { ProcessInfo, Recipe } from "../../lifecycle/types";
 import {
   METRICS_COLLECT_INTERVAL_MS,
   METRICS_HTTP_TIMEOUT_MS,

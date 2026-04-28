@@ -5,7 +5,7 @@ import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { AppContext } from "../../types/context";
 import { badRequest, notFound } from "../../core/errors";
 import { compactChatSession } from "./compaction";
-import { Event } from "../monitoring/event-manager";
+import { Event } from "../system/event-manager";
 import { buildSseHeaders, streamAsyncStrings } from "../../http/sse";
 import { THINKING_LEVELS } from "./configs";
 import { AGENT_RUN_EVENT_TYPES } from "./agent/contracts";

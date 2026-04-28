@@ -6,7 +6,7 @@ import {
   getSglangRuntimeInfo,
   getCudaInfo,
 } from "./runtime-info";
-import { getRocmInfo, resolveRocmSmiTool } from "../../lifecycle/platform/rocm-info";
+import { getRocmInfo, resolveRocmSmiTool } from "../../system/platform/rocm-info";
 import { resolveVllmPythonPath } from "./vllm-python-path";
 import {
   CUDA_UPGRADE_ENV,

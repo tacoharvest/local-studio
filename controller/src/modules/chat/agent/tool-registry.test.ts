@@ -1,14 +1,18 @@
 import { describe, expect, it } from "bun:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Config } from "../../../config/env";
 import { AGENT_TOOL_NAMES } from "./contracts";
 import { buildAgentTools } from "./tool-registry";
+
+const dataDir = join(tmpdir(), "vllm-studio");
 
 const createConfig = (overrides: Partial<Config> = {}): Config => ({
   host: "0.0.0.0",
   port: 8080,
   inference_port: 8000,
-  data_dir: "/tmp/vllm-studio",
-  db_path: "/tmp/vllm-studio/controller.db",
+  data_dir: dataDir,
+  db_path: join(dataDir, "controller.db"),
   models_dir: "/models",
   strict_openai_models: false,
   providers: [],

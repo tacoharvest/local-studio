@@ -1,7 +1,7 @@
 import { AsyncLock, delay } from "../../../core/async";
 import { parseProviderModel } from "../../../services/provider-routing";
 import { primaryLogPathFor, readFileTailBytes, sanitizeLogSessionId } from "../../../core/log-files";
-import { Event, type EventManager } from "../../monitoring/event-manager";
+import { Event, type EventManager } from "../../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../../contracts/controller-events";
 import { pidExists } from "./process-utilities";
 import { isRecipeRunning } from "../../lifecycle/recipes/recipe-matching";
@@ -20,7 +20,7 @@ import { createDownloadMachine, type DownloadMachine } from "./download-machine"
 import { getVllmRuntimeInfo, upgradeVllmRuntime, getVllmConfigHelp } from "./vllm-runtime";
 import { getLlamacppConfigHelp } from "./llamacpp-runtime";
 import { getLlamacppRuntimeInfo, getSglangRuntimeInfo, getExllamav3RuntimeInfo, getCudaInfo } from "./runtime-info";
-import { getRocmInfo, resolveRocmSmiTool } from "../../lifecycle/platform/rocm-info";
+import { getRocmInfo, resolveRocmSmiTool } from "../../system/platform/rocm-info";
 import { upgradeSglangRuntime, upgradeLlamacppRuntime, runPlatformUpgrade } from "./runtime-upgrade";
 import { fetchHuggingFaceModelInfo } from "./huggingface-api";
 

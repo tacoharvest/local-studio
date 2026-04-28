@@ -2,7 +2,7 @@
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import type { TSchema } from "@sinclair/typebox";
 import type { AppContext } from "../../../types/context";
-import { Event } from "../../monitoring/event-manager";
+import { Event } from "../../system/event-manager";
 import { AGENT_FILE_EVENT_TYPES, AGENT_TOOL_NAMES, type AgentEventType } from "./contracts";
 import { createTextResult } from "./tool-registry-common";
 import type { AgentToolRegistryOptions } from "./tool-registry-types";

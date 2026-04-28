@@ -1,5 +1,5 @@
 // CRITICAL
-import { Event } from "../../monitoring/event-manager";
+import { Event } from "../../system/event-manager";
 import type { AppContext } from "../../../types/context";
 import { AGENT_RUN_EVENT_TYPES } from "./contracts";
 import type { AssistantMessage, ToolResultMessage, Usage } from "./pi-agent-types";

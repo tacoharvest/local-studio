@@ -2,7 +2,7 @@
 import type { Hono } from "hono";
 import { performance } from "node:perf_hooks";
 import type { AppContext } from "../../types/context";
-import { getGpuInfo } from "../lifecycle/platform/gpu";
+import { getGpuInfo } from "./platform/gpu";
 import { fetchInference } from "../../services/inference/inference-client";
 
 /**

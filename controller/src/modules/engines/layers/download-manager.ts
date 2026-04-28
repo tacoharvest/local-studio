@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Config } from "../../../config/env";
 import type { Logger } from "../../../core/logger";
-import { Event, type EventManager } from "../../monitoring/event-manager";
+import { Event, type EventManager } from "../../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../../contracts/controller-events";
 import type { DownloadFileInfo, DownloadStatus, ModelDownload } from "../types";
 import type { DownloadStore } from "./download-store";

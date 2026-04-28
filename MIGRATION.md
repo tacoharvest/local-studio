@@ -3,7 +3,7 @@
 | Domain       | Phase | Status       |
 |-------------|-------|-------------|
 | engines     | 1     | 🟢 done     |
-| system      | 2     | 🔴 old      |
+| system      | 2     | 🟢 done     |
 | models      | 3     | 🔴 old      |
 | chat        | 4     | 🔴 old      |
 | pass-through| 1/5   | 🟡 touched  |
@@ -82,6 +82,21 @@ The `engines/` module is fully wired and replaces the old `lifecycle/engines/`, 
 - `npx tsc --noEmit` passes (controller) ✓
 - `bun test` passes (113/114, 1 pre-existing failure) ✓
 - `npx next build` passes (frontend) ✓
+
+## Phase 2: System Module — Completed
+
+The `system/` module consolidates monitoring infrastructure and platform detection from three old directories into one.
+
+- `monitoring/` (event-manager, metrics, metrics-store, logs, usage) → `system/`
+- `lifecycle/routes/system-routes.ts` → `system/routes.ts`
+- `lifecycle/metrics/metrics-collector.ts` → `system/metrics-collector/`
+- `lifecycle/platform/` → `system/platform/`
+
+**Deleted:** `monitoring/`, `lifecycle/platform/`, `lifecycle/metrics/`, `lifecycle/routes/`
+
+**What stays in `lifecycle/`:** `recipes/` and `types.ts` (Phase 3 models module)
+
+**Verification:** `npx tsc --noEmit` passes, `bun test` passes (108 pass, 0 fail)
 
 ## Phase 5: Pass-through/OpenAI Proxy — Touched During Phase 1
 

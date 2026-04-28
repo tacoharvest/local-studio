@@ -1,5 +1,5 @@
 // CRITICAL
-import type { GpuInfo, RuntimeGpuMonitoringTool } from "../types";
+import type { GpuInfo, RuntimeGpuMonitoringTool } from "../../lifecycle/types";
 import { runCommand } from "../../../core/command";
 import { getGpuInfoFromAmdSmi, getGpuInfoFromRocmSmi } from "./amd-gpu";
 import { resolveRocmSmiTool } from "./rocm-info";

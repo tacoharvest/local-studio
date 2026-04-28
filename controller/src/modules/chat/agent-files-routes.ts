@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import type { AppContext } from "../../types/context";
 import { badRequest, notFound } from "../../core/errors";
 import { AGENT_FILE_EVENT_TYPES } from "./agent/contracts";
-import { Event } from "../monitoring/event-manager";
+import { Event } from "../system/event-manager";
 import {
   createAgentDirectory,
   deleteAgentPath,

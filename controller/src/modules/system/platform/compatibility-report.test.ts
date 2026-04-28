@@ -1,6 +1,6 @@
 // CRITICAL
 import { describe, expect, it } from "bun:test";
-import type { SystemRuntimeInfo } from "../types";
+import type { SystemRuntimeInfo } from "../../lifecycle/types";
 import { buildCompatibilityReport } from "./compatibility-report";
 
 const baseRuntime = (overrides: Partial<SystemRuntimeInfo>): SystemRuntimeInfo => ({

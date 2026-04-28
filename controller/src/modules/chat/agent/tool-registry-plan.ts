@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import type { TSchema } from "@sinclair/typebox";
 import type { AppContext } from "../../../types/context";
-import { Event } from "../../monitoring/event-manager";
+import { Event } from "../../system/event-manager";
 import { createTextResult } from "./tool-registry-common";
 import type { AgentToolRegistryOptions } from "./tool-registry-types";
 import { AGENT_RUN_EVENT_TYPES } from "./contracts";

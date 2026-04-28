@@ -6,9 +6,9 @@ import type { AppContext } from "../types/context";
 import { isHttpStatus } from "../core/errors";
 import { registerAllChatRoutes } from "../modules/chat/routes";
 import { registerEngineRoutes } from "../modules/engines/routes";
-import { registerSystemRoutes } from "../modules/lifecycle/routes/system-routes";
+import { registerSystemRoutes } from "../modules/system/routes";
 import { registerModelsRoutes } from "../modules/models/routes";
-import { registerAllMonitoringRoutes } from "../modules/monitoring/routes";
+
 import { registerAllProxyRoutes } from "../modules/proxy/routes";
 import { registerStudioRoutes } from "../modules/studio/routes";
 import { registerAudioRoutes } from "../modules/audio/routes";
@@ -61,7 +61,6 @@ export const createApp = (context: AppContext): Hono => {
   registerModelsRoutes(app, context);
   registerStudioRoutes(app, context);
   registerAllChatRoutes(app, context);
-  registerAllMonitoringRoutes(app, context);
   registerAudioRoutes(app, context);
   registerJobsRoutes(app, context, context.jobManager);
   registerAllProxyRoutes(app, context);

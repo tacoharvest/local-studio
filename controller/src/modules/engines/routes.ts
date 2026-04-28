@@ -5,7 +5,7 @@ import type { Recipe } from "../lifecycle/types";
 import { delay } from "../../core/async";
 import { badRequest, notFound } from "../../core/errors";
 import { parseRecipe } from "../lifecycle/recipes/recipe-serializer";
-import { Event } from "../monitoring/event-manager";
+import { Event } from "../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../contracts/controller-events";
 import { fetchInference } from "../../services/inference/inference-client";
 import { isRecipeRunning } from "../lifecycle/recipes/recipe-matching";
@@ -22,13 +22,13 @@ import {
   getCudaInfo,
   getSystemRuntimeInfo,
 } from "./layers/runtime-info";
-import { getRocmInfo, resolveRocmSmiTool } from "../lifecycle/platform/rocm-info";
+import { getRocmInfo, resolveRocmSmiTool } from "../system/platform/rocm-info";
 import {
   upgradeSglangRuntime,
   upgradeLlamacppRuntime,
   runPlatformUpgrade,
 } from "./layers/runtime-upgrade";
-import { getGpuInfo } from "../lifecycle/platform/gpu";
+import { getGpuInfo } from "../system/platform/gpu";
 
 const resolveHfToken = (
   ctx: { req: { header: (name: string) => string | undefined } },

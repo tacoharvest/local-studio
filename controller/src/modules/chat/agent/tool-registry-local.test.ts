@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { buildLocalTools } from "./tool-registry-local";
 import { AGENT_TOOL_NAMES } from "./contracts";
 
+const dataDirectory = join(tmpdir(), "vllm-studio-local-tools");
+
 const createTools = () => {
-  const dataDirectory = "/tmp/vllm-studio-local-tools";
   rmSync(dataDirectory, { recursive: true, force: true });
   return buildLocalTools(
     {
@@ -83,7 +86,7 @@ describe("local agent tools", () => {
     const textPart = result.content.find(
       (item): item is { type: "text"; text: string } => item.type === "text"
     );
-    expect(textPart?.text).toContain("/tmp/vllm-studio-local-tools/agent-tools-shell/session-test");
+    expect(textPart?.text).toContain(`${dataDirectory}/agent-tools-shell/session-test`);
   });
 
   it("rejects cwd that escapes sandbox root", async () => {

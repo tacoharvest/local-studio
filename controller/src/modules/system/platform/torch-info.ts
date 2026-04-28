@@ -1,4 +1,4 @@
-import type { RuntimeTorchBuildInfo } from "../types";
+import type { RuntimeTorchBuildInfo } from "../../lifecycle/types";
 import { runCommand } from "../../../core/command";
 
 export const getTorchBuildInfo = (python: string): RuntimeTorchBuildInfo => {
