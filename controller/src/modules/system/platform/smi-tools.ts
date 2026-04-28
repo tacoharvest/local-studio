@@ -1,4 +1,4 @@
-import type { RuntimeGpuMonitoringTool, RuntimeRocmSmiTool } from "../../lifecycle/types";
+import type { RuntimeGpuMonitoringTool, RuntimeRocmSmiTool } from "../../models/types";
 import { resolveBinary } from "../../../core/command";
 
 type SmiPathEnvironment = "NVIDIA_SMI_PATH" | "AMD_SMI_PATH" | "ROCM_SMI_PATH";

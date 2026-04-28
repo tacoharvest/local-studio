@@ -31,4 +31,4 @@ export type {
   ProcessInfo,
   Recipe,
   GpuInfo,
-} from "../lifecycle/types";
+} from "../models/types";

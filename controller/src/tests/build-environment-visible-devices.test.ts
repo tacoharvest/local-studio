@@ -1,6 +1,6 @@
 // CRITICAL
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Recipe } from "../modules/lifecycle/types";
+import type { Recipe } from "../modules/models/types";
 import { buildEnvironment } from "../modules/engines/layers/process-utilities";
 
 const ORIGINAL_ENV = { ...process.env };

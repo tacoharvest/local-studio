@@ -10,7 +10,7 @@ import type { ChatRunOptions, ChatRunStream } from "../modules/chat/agent/run-ma
 import type { ChatStore } from "../modules/chat/store";
 import type { DownloadStore } from "../modules/engines/layers/download-store";
 import type { LifetimeMetricsStore, PeakMetricsStore } from "../modules/system/metrics-store";
-import type { RecipeStore } from "../modules/lifecycle/recipes/recipe-store";
+import type { RecipeStore } from "../modules/models/recipes/recipe-store";
 import type { JobStore } from "../stores/job-store";
 import type { JobType } from "../modules/jobs/types";
 

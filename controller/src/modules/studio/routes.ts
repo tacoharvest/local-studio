@@ -15,7 +15,7 @@ import { basename, resolve, sep } from "node:path";
 import { badRequest, notFound } from "../../core/errors";
 import type { AppContext } from "../../types/context";
 import { getGpuInfo } from "../system/platform/gpu";
-import type { GpuInfo } from "../lifecycle/types";
+import type { GpuInfo } from "../models/types";
 import { discoverModelDirectories, estimateWeightsSizeBytes } from "../models/model-browser";
 import { STUDIO_MODEL_RECOMMENDATIONS } from "./configs";
 import {

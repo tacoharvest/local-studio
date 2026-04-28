@@ -1,7 +1,7 @@
 // CRITICAL
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { RuntimeRocmInfo, RuntimeRocmSmiTool } from "../../lifecycle/types";
+import type { RuntimeRocmInfo, RuntimeRocmSmiTool } from "../../models/types";
 import { runCommand } from "../../../core/command";
 import { resolveAmdSmiBinary, resolveForcedRocmTool, resolveRocmSmiBinary } from "./smi-tools";
 import { ROCM_UPGRADE_ENV, isUpgradeCommandConfigured } from "../../engines/layers/upgrade-config";

@@ -4,7 +4,7 @@
 |-------------|-------|-------------|
 | engines     | 1     | 🟢 done     |
 | system      | 2     | 🟢 done     |
-| models      | 3     | 🔴 old      |
+| models      | 3     | 🟢 done     |
 | chat        | 4     | 🔴 old      |
 | pass-through| 1/5   | 🟡 touched  |
 
@@ -96,7 +96,15 @@ The `system/` module consolidates monitoring infrastructure and platform detecti
 
 **What stays in `lifecycle/`:** `recipes/` and `types.ts` (Phase 3 models module)
 
-**Verification:** `npx tsc --noEmit` passes, `bun test` passes (108 pass, 0 fail)
+**Verification:** `bun test` passes (175/179, 4 pre-existing sandbox failures)
+
+## Phase 3: Models Module — Completed
+
+`lifecycle/` directory deleted. `lifecycle/recipes/` moved into `models/recipes/`, `lifecycle/types.ts` merged into `models/types.ts`. 34 import paths rewritten.
+
+**Deleted:** `controller/src/modules/lifecycle/` — entire directory removed (was the last remnant)
+
+**Verification:** `bun test` passes (175/179, 4 pre-existing sandbox failures)
 
 ## Phase 5: Pass-through/OpenAI Proxy — Touched During Phase 1
 

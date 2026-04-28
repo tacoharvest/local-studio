@@ -1,10 +1,10 @@
 // CRITICAL
 import type { Hono } from "hono";
 import { HttpStatus, notFound, serviceUnavailable } from "../../core/errors";
-import { isRecipeRunning } from "../lifecycle/recipes/recipe-matching";
+import { isRecipeRunning } from "../models/recipes/recipe-matching";
 import { buildSseHeaders } from "../../http/sse";
 import type { AppContext } from "../../types/context";
-import type { ProcessInfo, Recipe } from "../lifecycle/types";
+import type { ProcessInfo, Recipe } from "../models/types";
 import { buildInferenceUrl } from "../../services/inference/inference-client";
 import {
   DEFAULT_CHAT_PROVIDER,

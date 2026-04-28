@@ -1,14 +1,14 @@
 // CRITICAL — Engines module routes
 import type { Hono } from "hono";
 import type { AppContext } from "../../types/context";
-import type { Recipe } from "../lifecycle/types";
+import type { Recipe } from "../models/types";
 import { delay } from "../../core/async";
 import { badRequest, notFound } from "../../core/errors";
-import { parseRecipe } from "../lifecycle/recipes/recipe-serializer";
+import { parseRecipe } from "../models/recipes/recipe-serializer";
 import { Event } from "../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../contracts/controller-events";
 import { fetchInference } from "../../services/inference/inference-client";
-import { isRecipeRunning } from "../lifecycle/recipes/recipe-matching";
+import { isRecipeRunning } from "../models/recipes/recipe-matching";
 import {
   getVllmRuntimeInfo,
   upgradeVllmRuntime,

@@ -1,5 +1,5 @@
 import { createStateMachine, type StateMachineContainer } from "../../../../../shared/src/state-machine";
-import type { Recipe } from "../../lifecycle/types";
+import type { Recipe } from "../../models/types";
 
 // ── States ────────────────────────────────────────────────────────────────
 export type EngineLifecycleState =

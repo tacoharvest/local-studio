@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { Recipe } from "../../lifecycle/types";
+import type { Recipe } from "../../models/types";
 import { fetchLocal } from "../../../http/local-fetch";
 import type { Backend } from "../../../../../shared/src";
 

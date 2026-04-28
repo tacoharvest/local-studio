@@ -4,12 +4,12 @@ import { primaryLogPathFor, readFileTailBytes, sanitizeLogSessionId } from "../.
 import { Event, type EventManager } from "../../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../../contracts/controller-events";
 import { pidExists } from "./process-utilities";
-import { isRecipeRunning } from "../../lifecycle/recipes/recipe-matching";
-import type { LaunchResult, ProcessInfo, Recipe } from "../../lifecycle/types";
+import { isRecipeRunning } from "../../models/recipes/recipe-matching";
+import type { LaunchResult, ProcessInfo, Recipe } from "../../models/types";
 import type { Config } from "../../../config/env";
 import type { Logger } from "../../../core/logger";
 import type { ProcessManager } from "./process-manager";
-import type { RecipeStore } from "../../lifecycle/recipes/recipe-store";
+import type { RecipeStore } from "../../models/recipes/recipe-store";
 import { LIFECYCLE_READY_TIMEOUT_MS } from "../configs";
 import { createEngineLifecycleMachine, type EngineLifecycleMachine, type EngineLifecycleState, type EngineLifecycleEvent } from "./engine-lifecycle-machine";
 import type { EngineService, RuntimeType, UpgradeResult, RuntimeInfo, DownloadRequest, DownloadHandle, DownloadStatus, HfModel, EvictResult, CancelResult } from "../services/engine-service";

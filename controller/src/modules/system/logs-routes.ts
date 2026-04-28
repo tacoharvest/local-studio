@@ -9,7 +9,7 @@ import { badRequest, notFound } from "../../core/errors";
 import { streamAsyncStrings, buildSseHeaders } from "../../http/sse";
 import { CONTROLLER_EVENTS } from "../../contracts/controller-events";
 import { Event } from "./event-manager";
-import { isRecipeRunning } from "../lifecycle/recipes/recipe-matching";
+import { isRecipeRunning } from "../models/recipes/recipe-matching";
 import {
   cleanupLogFiles,
   fallbackLogPathFor,

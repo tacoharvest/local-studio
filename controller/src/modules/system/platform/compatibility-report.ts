@@ -6,7 +6,7 @@ import type {
   RuntimeGpuMonitoringTool,
   RuntimeRocmSmiTool,
   SystemRuntimeInfo,
-} from "../../lifecycle/types";
+} from "../../models/types";
 import { runCommand } from "../../../core/command";
 import {
   resolveAmdSmiBinary,

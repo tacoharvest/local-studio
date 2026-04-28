@@ -1,7 +1,7 @@
 // CRITICAL — copied from lifecycle/runtime/runtime-info.ts
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ProcessInfo, RuntimeBackendInfo, RuntimeCudaInfo, RuntimePlatformInfo, RuntimePlatformKind, RuntimeTorchBuildInfo, SystemRuntimeInfo } from "../../lifecycle/types";
+import type { ProcessInfo, RuntimeBackendInfo, RuntimeCudaInfo, RuntimePlatformInfo, RuntimePlatformKind, RuntimeTorchBuildInfo, SystemRuntimeInfo } from "../../models/types";
 import type { Config } from "../../../config/env";
 import { resolveBinary, runCommand } from "../../../core/command";
 import { getGpuInfo } from "../../system/platform/gpu";

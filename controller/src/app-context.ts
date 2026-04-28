@@ -14,7 +14,7 @@ import { primaryLogPathFor } from "./core/log-files";
 import { ChatStore } from "./modules/chat/store";
 import { DownloadStore } from "./modules/engines/layers/download-store";
 import { PeakMetricsStore, LifetimeMetricsStore } from "./modules/system/metrics-store";
-import { RecipeStore } from "./modules/lifecycle/recipes/recipe-store";
+import { RecipeStore } from "./modules/models/recipes/recipe-store";
 import { ChatRunManager } from "./modules/chat/agent/run-manager";
 import { JobStore } from "./stores/job-store";
 import { JobManager } from "./modules/jobs/job-manager";

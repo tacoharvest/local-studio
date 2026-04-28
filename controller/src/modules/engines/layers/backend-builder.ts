@@ -1,7 +1,7 @@
 // CRITICAL
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import type { Recipe } from "../../lifecycle/types";
+import type { Recipe } from "../../models/types";
 import type { Config } from "../../../config/env";
 import { resolveBinary } from "../../../core/command";
 import { resolveVllmRecipePythonPath } from "./vllm-python-path";

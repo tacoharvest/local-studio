@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../../types/context";
 import { SttIntegrationError } from "../../services/integrations/stt";
 import { TtsIntegrationError } from "../../services/integrations/tts";
-import type { ProcessInfo } from "../lifecycle/types";
+import type { ProcessInfo } from "../models/types";
 import { registerAudioRoutes } from "./routes";
 
 const createWavBytes = (): Buffer =>

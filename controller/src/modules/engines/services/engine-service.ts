@@ -1,5 +1,5 @@
 // Types needed by EngineService are defined below
-import type { Recipe, LaunchResult, ProcessInfo } from "../../lifecycle/types";
+import type { Recipe, LaunchResult, ProcessInfo } from "../../models/types";
 import type { ModelDownload } from "../../../../../shared/src";
 
 export type { Recipe, LaunchResult, ProcessInfo };
