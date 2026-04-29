@@ -24,6 +24,7 @@ export interface DesktopBridge {
   listProjects(): Promise<ProjectEntry[]>;
   addProject(directoryPath: string): Promise<ProjectEntry>;
   removeProject(id: string): Promise<{ ok: true }>;
+  getPtyPort(): Promise<number | null>;
 }
 
 export interface IpcRequestMap {
@@ -37,4 +38,5 @@ export interface IpcRequestMap {
     directoryPath: string,
   ) => Awaited<ReturnType<DesktopBridge["addProject"]>>;
   "desktop:remove-project": (id: string) => Awaited<ReturnType<DesktopBridge["removeProject"]>>;
+  "desktop:get-pty-port": () => Awaited<ReturnType<DesktopBridge["getPtyPort"]>>;
 }
