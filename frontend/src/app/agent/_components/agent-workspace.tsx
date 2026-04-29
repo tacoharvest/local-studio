@@ -14,7 +14,6 @@ import {
   GitBranch,
   Globe,
   Home,
-  Loader2,
   MessageSquare,
   Plus,
   RotateCcw,
@@ -791,13 +790,21 @@ export function AgentWorkspace() {
         <div className="flex min-h-0 flex-1">
           <section className="flex min-w-0 flex-1 flex-col">
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-              <div className="mx-auto w-full max-w-3xl space-y-5">
-                {messages
-                  .filter((message) => message.role !== "system")
-                  .map((message) => (
-                    <TimelineMessage key={message.id} message={message} />
-                  ))}
-                {running ? <WorkingRow status={status} /> : null}
+              <div className="mx-auto w-full max-w-3xl">
+                {(() => {
+                  const visible = messages.filter((message) => message.role !== "system");
+                  if (visible.length === 0 && !running) {
+                    return <ChatEmptyState />;
+                  }
+                  return (
+                    <div className="space-y-4">
+                      {visible.map((message) => (
+                        <TimelineMessage key={message.id} message={message} />
+                      ))}
+                      {running ? <WorkingRow status={status} /> : null}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1012,60 +1019,62 @@ function ThreadRow({
 
 function TimelineMessage({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
-  const isSystem = message.role === "system";
+  if (isUser) {
+    return (
+      <article className="flex justify-end">
+        <div className="max-w-[75%] rounded-2xl rounded-br-md bg-[var(--agent-muted-bg)] px-3 py-2 text-sm leading-6 whitespace-pre-wrap break-words">
+          {message.text}
+        </div>
+      </article>
+    );
+  }
   return (
-    <article className="group grid grid-cols-[32px_1fr] gap-3">
-      <div className="flex size-8 items-center justify-center rounded-full border border-[var(--agent-border)] bg-[var(--agent-card)] text-[var(--agent-muted)]">
-        {isUser ? (
-          <MessageSquare className="size-4" />
-        ) : isSystem ? (
-          <Settings className="size-4" />
-        ) : (
-          <Bot className="size-4" />
-        )}
+    <article className="min-w-0">
+      {message.thinking ? (
+        <details className="mb-2 text-xs">
+          <summary className="cursor-pointer list-none text-[11px] italic text-[var(--agent-muted)] hover:text-[var(--agent-fg)]">
+            Thinking
+          </summary>
+          <pre className="mt-2 whitespace-pre-wrap border-t border-[var(--agent-border)] pt-2 font-mono text-[11px] leading-5 text-[var(--agent-muted)]">
+            {message.thinking}
+          </pre>
+        </details>
+      ) : null}
+      <div className="chat-markdown whitespace-pre-wrap text-sm leading-6">
+        {message.text || "…"}
       </div>
-      <div className="min-w-0">
-        <div className="mb-1 flex items-center gap-2 text-xs text-[var(--agent-muted)]">
-          <span className="font-medium text-[var(--agent-fg)]">
-            {isUser ? "You" : isSystem ? "System" : "Pi"}
-          </span>
-          {message.timestamp ? <span>{message.timestamp}</span> : null}
+      {message.tools?.length ? (
+        <div className="mt-2 flex flex-col gap-1">
+          {message.tools.map((tool) => (
+            <details
+              key={tool.id}
+              className="rounded border border-[var(--agent-border)]"
+              open={tool.status === "running"}
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[11px] text-[var(--agent-muted)] hover:text-[var(--agent-fg)]">
+                <span className="font-medium">{tool.name}</span>
+                <span className="opacity-70">{tool.status}</span>
+              </summary>
+              {tool.text ? (
+                <pre className="overflow-x-auto whitespace-pre-wrap border-t border-[var(--agent-border)] p-2 font-mono text-[11px] leading-5">
+                  {tool.text}
+                </pre>
+              ) : null}
+            </details>
+          ))}
         </div>
-        <div className="chat-markdown whitespace-pre-wrap text-sm leading-6">
-          {message.text || (!isUser && !isSystem ? "…" : "")}
-        </div>
-        {message.thinking ? (
-          <details className="mt-3 rounded-md border border-[var(--agent-border)] bg-[var(--agent-card)] px-3 py-2 text-xs text-[var(--agent-muted)]">
-            <summary className="cursor-pointer">Thinking</summary>
-            <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] leading-5">
-              {message.thinking}
-            </pre>
-          </details>
-        ) : null}
-        {message.tools?.length ? (
-          <div className="mt-3 space-y-2">
-            {message.tools.map((tool) => (
-              <details
-                key={tool.id}
-                className="rounded-md border border-[var(--agent-border)] bg-[var(--agent-card)]"
-                open={tool.status === "running"}
-              >
-                <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-xs">
-                  <Terminal className="size-3.5 text-[var(--agent-muted)]" />
-                  <span className="font-medium">{tool.name}</span>
-                  <span className="text-[var(--agent-muted)]">{tool.status}</span>
-                </summary>
-                {tool.text ? (
-                  <pre className="overflow-x-auto whitespace-pre-wrap border-t border-[var(--agent-border)] p-3 font-mono text-[11px] leading-5">
-                    {tool.text}
-                  </pre>
-                ) : null}
-              </details>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
     </article>
+  );
+}
+
+function ChatEmptyState() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center px-6 text-center">
+      <p className="text-sm text-[var(--agent-muted)]">
+        Start a thread by asking the model to do something.
+      </p>
+    </div>
   );
 }
 
@@ -1149,14 +1158,7 @@ function ProjectRow({
 }
 
 function WorkingRow({ status }: { status: string }) {
-  return (
-    <div className="grid grid-cols-[32px_1fr] gap-3 text-sm text-[var(--agent-muted)]">
-      <div className="flex size-8 items-center justify-center rounded-full border border-[var(--agent-border)] bg-[var(--agent-card)]">
-        <Loader2 className="size-4 animate-spin" />
-      </div>
-      <div className="pt-1.5">Pi agent is {status}…</div>
-    </div>
-  );
+  return <div className="text-sm italic text-[var(--agent-muted)]">Pi is {status}…</div>;
 }
 
 type TerminalLine = {
