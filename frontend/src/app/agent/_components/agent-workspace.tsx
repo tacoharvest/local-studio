@@ -509,7 +509,9 @@ export function AgentWorkspace() {
           sessionId: SESSION_ID,
           modelId: selectedModel,
           message: text,
-          cwd: agentCwd,
+          // Send undefined (not empty string) when no project picked so the
+          // server-side resolver can fall back to the last-used project / $HOME.
+          cwd: agentCwd.trim() || undefined,
         }),
       });
       if (!response.ok || !response.body) {
@@ -715,6 +717,13 @@ export function AgentWorkspace() {
               })()}
             </div>
           </div>
+
+          {!selectedProjectId && projects.length === 0 ? (
+            <div className="shrink-0 border-t border-(--border) bg-(--surface) px-6 py-2 text-[11px] text-(--dim)">
+              No project selected — agent runs in your home directory. Pick a project from the
+              header to scope it.
+            </div>
+          ) : null}
 
           <form
             onSubmit={sendMessage}

@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { getApiSettings, type ApiSettings } from "@/lib/api-settings";
 import { normalizeOpenAIModels, modelsToPiModels, type AgentModel } from "./models";
+import { listProjectsFromStore } from "./projects-store";
 
 const PROVIDER_ID = "vllm-studio";
 const DEFAULT_SESSION_ID = "default";
@@ -47,9 +48,26 @@ function getWritableDataDir(): string {
 }
 
 function resolveDefaultAgentCwd(): string {
+  // Explicit override always wins.
   if (process.env.VLLM_STUDIO_AGENT_CWD) return process.env.VLLM_STUDIO_AGENT_CWD;
+
+  // In a packaged Electron app, process.cwd() is "/" — useless as a working
+  // directory for the coding agent. If the renderer hasn't picked a project,
+  // fall back to the most recently added project on disk, then to $HOME.
+  try {
+    const projects = listProjectsFromStore();
+    const usable = projects.find((entry) => entry.exists);
+    if (usable) return usable.path;
+  } catch {
+    // ignore — projects.json may not exist yet
+  }
+
+  // Dev: if cwd is the frontend/ dir, use the repo root.
   const cwd = process.cwd();
   if (path.basename(cwd) === "frontend") return path.resolve(cwd, "..");
+
+  // Bare process.cwd() === "/" is unusable; prefer $HOME.
+  if (cwd === "/" || cwd === "") return homedir();
   return cwd;
 }
 
