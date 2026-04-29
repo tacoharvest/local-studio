@@ -1,11 +1,12 @@
 // CRITICAL
 "use client";
 
-import { useCallback, useEffect, useRef, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { AttachmentsPreview } from "./attachments-preview";
 import { RecordingIndicator } from "./recording-indicator";
 import { TranscriptionStatus } from "./transcription-status";
 import { CallModeIndicator } from "./call-mode-indicator";
+import { CommandPalette } from "./command-palette";
 import { useAppStore } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { ToolBeltToolbarContainer } from "./tool-belt/tool-belt-toolbar-container";
@@ -41,6 +42,19 @@ export function ToolBelt({
 }: ToolBeltProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const isDisabled = false;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Cmd/Ctrl+K opens the command palette (t3code parity).
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const {
     value,
     setInput,
@@ -168,18 +182,29 @@ export function ToolBelt({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      // `/` at start of an empty composer opens the command palette.
+      if (e.key === "/" && !value && !isLoading) {
+        e.preventDefault();
+        setPaletteOpen(true);
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [handleSubmit],
+    [handleSubmit, value, isLoading],
   );
 
   const canSend = value.trim().length > 0 || attachments.length > 0;
 
   return (
     <div ref={rootRef} className="px-3 md:px-4">
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenChatSettings={onOpenChatSettings}
+      />
       <div className="w-full max-w-none md:max-w-3xl md:mx-auto">
         <AttachmentsPreview
           attachments={attachments}
