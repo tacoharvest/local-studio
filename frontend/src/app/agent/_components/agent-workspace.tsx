@@ -15,6 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { AssistantMarkdown } from "./assistant-markdown";
 
 type WebviewElement = HTMLElement & {
   goBack: () => void;
@@ -875,11 +876,8 @@ function TimelineMessage({ message }: { message: ChatMessage }) {
   return (
     <article className="flex flex-col gap-1">
       <div className="text-[11px] font-medium uppercase tracking-wide text-(--dim)">Pi</div>
-      <div className="chat-markdown whitespace-pre-wrap text-sm leading-6 text-(--fg)">
-        {message.text || <span className="text-(--dim)">…</span>}
-      </div>
       {message.thinking ? (
-        <details className="mt-1 text-xs">
+        <details className="text-xs">
           <summary className="cursor-pointer list-none text-[11px] italic text-(--dim) hover:text-(--fg)">
             Show thinking
           </summary>
@@ -888,6 +886,11 @@ function TimelineMessage({ message }: { message: ChatMessage }) {
           </pre>
         </details>
       ) : null}
+      {message.text ? (
+        <AssistantMarkdown text={message.text} />
+      ) : (
+        <div className="text-sm leading-6 text-(--dim)">…</div>
+      )}
       {message.tools?.length ? (
         <div className="mt-1 flex flex-col gap-1">
           {message.tools.map((tool) => (
