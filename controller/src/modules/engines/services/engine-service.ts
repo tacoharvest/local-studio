@@ -63,6 +63,13 @@ export interface EnsureActiveOptions {
   publish_events?: boolean;
 }
 
+export type SetActiveRecipeResult = { ok: true } | { ok: false; error: string };
+
+/** Options for setting the active recipe. */
+export interface SetActiveRecipeOptions {
+  signal?: AbortSignal;
+}
+
 /**
  * The single public contract for the engines module.
  * All consumers (HTTP routes, other modules, tests) use this interface.
@@ -70,6 +77,7 @@ export interface EnsureActiveOptions {
 export interface EngineService {
   // Lifecycle
   launch(recipe: Recipe): Promise<LaunchResult>;
+  setActiveRecipe?(recipe: Recipe | null, options?: SetActiveRecipeOptions): Promise<SetActiveRecipeResult>;
   ensureActive(recipe: Recipe, options?: EnsureActiveOptions): Promise<EnsureActiveResult>;
   evict(force?: boolean): Promise<EvictResult>;
   cancelLaunch(recipeId: string): Promise<CancelResult>;

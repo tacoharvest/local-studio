@@ -1,5 +1,4 @@
 import { AsyncLock, delay } from "../../../core/async";
-import { parseProviderModel } from "../../../services/provider-routing";
 import { primaryLogPathFor, readFileTailBytes, sanitizeLogSessionId } from "../../../core/log-files";
 import { Event, type EventManager } from "../../system/event-manager";
 import { CONTROLLER_EVENTS } from "../../../contracts/controller-events";
@@ -12,7 +11,7 @@ import type { ProcessManager } from "./process-manager";
 import type { RecipeStore } from "../../models/recipes/recipe-store";
 import { LIFECYCLE_READY_TIMEOUT_MS } from "../configs";
 import { createEngineLifecycleMachine, type EngineLifecycleMachine, type EngineLifecycleState, type EngineLifecycleEvent } from "./engine-lifecycle-machine";
-import type { EngineService, RuntimeType, UpgradeResult, RuntimeInfo, DownloadRequest, DownloadHandle, DownloadStatus, HfModel, EvictResult, CancelResult } from "../services/engine-service";
+import type { EngineService, RuntimeType, UpgradeResult, RuntimeInfo, DownloadRequest, DownloadHandle, DownloadStatus, HfModel, EvictResult, CancelResult, SetActiveRecipeResult, SetActiveRecipeOptions } from "../services/engine-service";
 import type { ModelDownload } from "../../shared/recipe-types";
 
 import { DownloadManager } from "./download-manager";
@@ -97,6 +96,131 @@ export class EngineCoordinator implements EngineService {
       message: "Launch started",
       log_file: logFilePath,
     };
+  }
+
+  /**
+   * Set the authoritative active recipe without touching the lifecycle FSM.
+   * @param recipe - Recipe to activate, or null to evict the active process.
+   * @param options - Optional cancellation controls.
+   * @returns Operation result.
+   */
+  async setActiveRecipe(
+    recipe: Recipe | null,
+    options: SetActiveRecipeOptions = {}
+  ): Promise<SetActiveRecipeResult> {
+    const release = await this.switchLock.acquire();
+    let spawnedPid: number | null = null;
+    let cancelled = false;
+    const publishCancelled = async (targetRecipe: Recipe): Promise<SetActiveRecipeResult> => {
+      if (cancelled) return { ok: false, error: "Launch cancelled" };
+      cancelled = true;
+      if (spawnedPid) {
+        await this.deps.processManager.killProcess(spawnedPid, true);
+      }
+      await this.deps.eventManager.publishLaunchProgress(
+        targetRecipe.id,
+        "cancelled",
+        "Launch cancelled",
+        0
+      );
+      return { ok: false, error: "Launch cancelled" };
+    };
+    const abortIfNeeded = async (targetRecipe: Recipe | null): Promise<SetActiveRecipeResult | null> => {
+      if (!options.signal?.aborted) return null;
+      if (!targetRecipe) return { ok: false, error: "Operation cancelled" };
+      return publishCancelled(targetRecipe);
+    };
+
+    try {
+      const current = await this.deps.processManager.findInferenceProcess(
+        this.deps.config.inference_port
+      );
+      const initialAbort = await abortIfNeeded(recipe);
+      if (initialAbort) return initialAbort;
+
+      if (!recipe && !current) {
+        this.currentRecipe = null;
+        return { ok: true };
+      }
+
+      if (recipe && current && isRecipeRunning(recipe, current)) {
+        this.currentRecipe = recipe;
+        return { ok: true };
+      }
+
+      if (current && (!recipe || !isRecipeRunning(recipe, current))) {
+        const evictedRecipe = this.findRecipeForProcess(current);
+        await this.deps.processManager.killProcess(current.pid, true);
+        if (evictedRecipe) {
+          this.abortRunsForRecipe(evictedRecipe);
+        }
+        await delay(500);
+      }
+
+      const postEvictAbort = await abortIfNeeded(recipe);
+      if (postEvictAbort) return postEvictAbort;
+
+      if (!recipe) {
+        this.currentRecipe = null;
+        return { ok: true };
+      }
+
+      await this.deps.eventManager.publishLaunchProgress(
+        recipe.id,
+        "launching",
+        `Starting ${recipe.name}...`,
+        0.25
+      );
+      const launch = await this.deps.processManager.launchModel(recipe);
+      spawnedPid = launch.pid;
+      if (!launch.success) {
+        await this.deps.eventManager.publishLaunchProgress(recipe.id, "error", launch.message, 0);
+        return { ok: false, error: launch.message };
+      }
+
+      const postLaunchAbort = await abortIfNeeded(recipe);
+      if (postLaunchAbort) return postLaunchAbort;
+
+      await this.deps.eventManager.publishLaunchProgress(
+        recipe.id,
+        "waiting",
+        "Loading model... (0s)",
+        0.5
+      );
+      const waitOptions: Parameters<typeof this.waitForReady>[0] = {
+        recipe,
+        pid: launch.pid,
+        logFilePath: launch.log_file ?? primaryLogPathFor(this.deps.config.data_dir, recipe.id),
+        timeoutMs: LIFECYCLE_READY_TIMEOUT_MS,
+      };
+      if (options.signal) {
+        waitOptions.cancel = options.signal;
+      }
+      const ready = await this.waitForReady(waitOptions);
+
+      if (options.signal?.aborted) {
+        return publishCancelled(recipe);
+      }
+
+      if (ready.ready) {
+        this.currentRecipe = recipe;
+        await this.deps.eventManager.publishLaunchProgress(
+          recipe.id,
+          "ready",
+          "Model is ready!",
+          1
+        );
+        return { ok: true };
+      }
+
+      if (launch.pid) {
+        await this.deps.processManager.killProcess(launch.pid, true);
+      }
+      await this.deps.eventManager.publishLaunchProgress(recipe.id, "error", ready.message, 0);
+      return { ok: false, error: ready.message };
+    } finally {
+      release();
+    }
   }
 
   private async runLaunchInBackground(
@@ -317,16 +441,13 @@ export class EngineCoordinator implements EngineService {
     );
 
     let totalAborted = 0;
-    const abortedByCanonical = new Set<string>();
+    const abortedCandidates = new Set<string>();
     for (const candidate of modelCandidates) {
-      const parsed = parseProviderModel(candidate);
-      if (!parsed.modelId) continue;
-      const canonical = `${parsed.provider}/${parsed.modelId}`.toLowerCase();
-      if (abortedByCanonical.has(canonical)) continue;
-      abortedByCanonical.add(canonical);
-      totalAborted += this.deps.abortRunsForModel(
-        `${parsed.provider}/${parsed.modelId}`
-      );
+      const normalized = candidate.trim();
+      const canonical = normalized.toLowerCase();
+      if (abortedCandidates.has(canonical)) continue;
+      abortedCandidates.add(canonical);
+      totalAborted += this.deps.abortRunsForModel(normalized);
     }
 
     if (totalAborted > 0) {
