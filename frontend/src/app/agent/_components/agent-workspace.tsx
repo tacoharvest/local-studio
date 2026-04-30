@@ -70,6 +70,7 @@ const BROWSER_TOOL_DEFAULT_OFF_MIGRATION_KEY =
   "***************************************************";
 const COMPUTER_BROWSER_OPEN_KEY = "vllm-studio.agent.computer.browserOpen";
 const COMPUTER_FILES_OPEN_KEY = "vllm-studio.agent.computer.filesOpen";
+const COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY = "vllm-studio.agent.computer.defaultClosedMigrated";
 const PANE_LAYOUT_KEY = "vllm-studio.agent.paneLayout";
 
 function newPaneId(): PaneId {
@@ -92,15 +93,15 @@ export function AgentWorkspace() {
   const [agentCwd, setAgentCwd] = useState(DEFAULT_AGENT_CWD);
   const [error, setError] = useState("");
   const [loadingModels, setLoadingModels] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [browserUrl, setBrowserUrl] = useState("https://www.google.com");
   const [browserInput, setBrowserInput] = useState("https://www.google.com");
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [browserToolEnabled, setBrowserToolEnabled] = useState(false);
-  const [browserOpen, setBrowserOpen] = useState(true);
-  const [filesOpen, setFilesOpen] = useState(true);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
 
   // Pane state: a tree-shaped Layout where each leaf is identified by a
   // PaneId and points into panesById, which holds tabs + the per-pane
@@ -324,10 +325,16 @@ export function AgentWorkspace() {
     }
     const browserOn = window.localStorage.getItem(BROWSER_TOOL_KEY);
     if (browserOn === "1") setBrowserToolEnabled(true);
+    const computerMigrated = window.localStorage.getItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY);
+    if (!computerMigrated) {
+      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "0");
+      window.localStorage.setItem(COMPUTER_FILES_OPEN_KEY, "0");
+      window.localStorage.setItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY, "1");
+    }
     const browserOpenStored = window.localStorage.getItem(COMPUTER_BROWSER_OPEN_KEY);
-    if (browserOpenStored === "0") setBrowserOpen(false);
+    if (browserOpenStored === "1") setBrowserOpen(true);
     const filesOpenStored = window.localStorage.getItem(COMPUTER_FILES_OPEN_KEY);
-    if (filesOpenStored === "0") setFilesOpen(false);
+    if (filesOpenStored === "1") setFilesOpen(true);
     // Restore the pane layout shape only (split ratios + leaf placement). Each
     // referenced pane gets a fresh PaneState — we don't persist tab content
     // because pi sessions live in their own files and are picked from the
