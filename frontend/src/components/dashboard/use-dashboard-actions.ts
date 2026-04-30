@@ -1,26 +1,8 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import api from "@/lib/api";
 
-export function useDashboardActions(reload: () => Promise<void>) {
+export function useDashboardActions() {
   const [benchmarking, setBenchmarking] = useState(false);
-
-  const onLaunch = async (recipeId: string) => {
-    try {
-      await api.launch(recipeId, true);
-    } catch (e) {
-      alert("Failed to start launch: " + (e as Error).message);
-    }
-  };
-
-  const onStop = async () => {
-    if (!confirm("Stop the current model?")) return;
-    try {
-      await api.evict(true);
-      await reload();
-    } catch (e) {
-      alert("Failed to stop: " + (e as Error).message);
-    }
-  };
 
   const onBenchmark = async () => {
     if (benchmarking) return;
@@ -35,5 +17,5 @@ export function useDashboardActions(reload: () => Promise<void>) {
     }
   };
 
-  return { benchmarking, onLaunch, onStop, onBenchmark };
+  return { benchmarking, onBenchmark };
 }

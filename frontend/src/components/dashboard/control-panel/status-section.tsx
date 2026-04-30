@@ -18,7 +18,7 @@ interface StatusSectionProps {
   benchmarking: boolean;
   onStop: () => void;
   recipes?: RecipeWithStatus[];
-  launching?: boolean;
+  lifecycleStatus?: "idle" | "starting" | "ready" | "error";
   onLaunch?: (recipeId: string) => Promise<void>;
   onNewRecipe?: () => void;
   onViewAll?: () => void;
@@ -37,7 +37,7 @@ export function StatusSection({
   benchmarking,
   onStop,
   recipes,
-  launching,
+  lifecycleStatus,
   onLaunch,
   onNewRecipe,
   onViewAll,
@@ -113,7 +113,7 @@ export function StatusSection({
             <ModelsDropdown
               recipes={recipes}
               currentRecipeId={currentRecipe?.id}
-              launching={!!launching}
+              lifecycleStatus={lifecycleStatus ?? "idle"}
               onLaunch={onLaunch}
               onNewRecipe={onNewRecipe}
               onViewAll={onViewAll}
@@ -267,14 +267,14 @@ function firstPositive(...values: Array<number | null | undefined>): number {
 function ModelsDropdown({
   recipes,
   currentRecipeId,
-  launching,
+  lifecycleStatus,
   onLaunch,
   onNewRecipe,
   onViewAll,
 }: {
   recipes: RecipeWithStatus[];
   currentRecipeId?: string;
-  launching: boolean;
+  lifecycleStatus: "idle" | "starting" | "ready" | "error";
   onLaunch: (id: string) => Promise<void>;
   onNewRecipe?: () => void;
   onViewAll?: () => void;
@@ -334,9 +334,9 @@ function ModelsDropdown({
               <div className="px-3 py-4 font-mono text-xs text-(--dim)">No models</div>
             )}
             {visible.map((r) => {
-              const isCur = r.id === currentRecipeId;
+              const row = { isCurrent: r.id === currentRecipeId };
               const running = r.status === "running";
-              const disabled = launching || running;
+              const disabled = lifecycleStatus === "starting" || row.isCurrent;
               return (
                 <button
                   key={r.id}
@@ -346,12 +346,12 @@ function ModelsDropdown({
                     await onLaunch(r.id);
                   }}
                   className={`flex w-full items-center gap-2 border-b border-(--border)/60 px-2.5 py-1.5 text-left last:border-b-0 ${
-                    isCur ? "bg-(--fg)/8" : "hover:bg-(--fg)/5"
-                  } ${disabled && !running ? "cursor-not-allowed opacity-30" : ""}`}
+                    row.isCurrent ? "bg-(--fg)/8" : "hover:bg-(--fg)/5"
+                  } ${disabled && !row.isCurrent ? "cursor-not-allowed opacity-30" : ""}`}
                 >
                   <span
                     className={`h-3 w-0.5 shrink-0 ${
-                      isCur ? "bg-(--fg)" : running ? "bg-(--fg)/60" : "bg-(--dim)/40"
+                      row.isCurrent ? "bg-(--fg)" : running ? "bg-(--fg)/60" : "bg-(--dim)/40"
                     }`}
                   />
                   <span className="flex-1 truncate font-mono text-xs text-(--fg)" title={r.name}>

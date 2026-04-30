@@ -25,7 +25,7 @@ export function ControlPanel(props: DashboardLayoutProps) {
         benchmarking={props.benchmarking}
         onStop={props.onStop}
         recipes={recipes}
-        launching={props.launching}
+        lifecycleStatus={props.lifecycleStatus}
         onLaunch={props.onLaunch}
         onNewRecipe={props.onNewRecipe}
         onViewAll={props.onViewAll}
