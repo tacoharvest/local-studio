@@ -31,7 +31,6 @@ export interface DashboardLayoutProps {
   inferencePort?: number;
   onNavigateLogs: () => void;
   onBenchmark: () => void;
-  onStop: () => void;
   onLaunch: (recipeId: string) => Promise<void>;
   onNewRecipe: () => void;
   onViewAll: () => void;

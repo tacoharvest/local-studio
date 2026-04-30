@@ -75,16 +75,15 @@ export function useModelLifecycle(): ModelLifecycle {
   }, []);
 
   const stop = useCallback(async () => {
-    if (realtime.status?.process && !confirm("Stop the current model?")) return;
     setError(null);
     try {
       await api.evict(true);
     } catch (caught) {
       const message = (caught as Error).message;
       setError(message);
-      alert("Failed to stop: " + message);
+      throw new Error(message);
     }
-  }, [realtime.status?.process]);
+  }, []);
 
   return {
     activeRecipeId,

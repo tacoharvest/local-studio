@@ -113,10 +113,6 @@ describe("useModelLifecycle", () => {
     apiMocks.launch.mockResolvedValue({ success: true, message: "Launch started" });
     apiMocks.evict.mockResolvedValue({ success: true, evicted_pid: null });
     vi.stubGlobal("alert", vi.fn());
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
   });
 
   afterEach(() => {
@@ -210,7 +206,6 @@ describe("useModelLifecycle", () => {
     await act(async () => {
       await hook.result.stop();
     });
-    expect(confirm).toHaveBeenCalledWith("Stop the current model?");
     expect(apiMocks.evict).toHaveBeenCalledWith(true);
 
     realtimeFixture.current!.snapshot.status = {

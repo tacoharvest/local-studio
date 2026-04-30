@@ -16,7 +16,6 @@ interface StatusSectionProps {
   onNavigateLogs: () => void;
   onBenchmark: () => void;
   benchmarking: boolean;
-  onStop: () => void;
   recipes?: RecipeWithStatus[];
   lifecycleStatus?: "idle" | "starting" | "ready" | "error";
   onLaunch?: (recipeId: string) => Promise<void>;
@@ -35,7 +34,6 @@ export function StatusSection({
   onNavigateLogs,
   onBenchmark,
   benchmarking,
-  onStop,
   recipes,
   lifecycleStatus,
   onLaunch,
@@ -129,7 +127,6 @@ export function StatusSection({
           ) : (
             <ActionBtn label="Bench" onClick={onBenchmark} disabled />
           )}
-          <ActionBtn label="Stop" onClick={onStop} disabled={!isRunning} danger />
         </div>
       </div>
 

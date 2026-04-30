@@ -34,7 +34,6 @@ export function useDashboardData() {
     launching: lifecycle.status === "starting",
     lifecycleStatus: lifecycle.status,
     onLaunch: lifecycle.start,
-    onStop: lifecycle.stop,
     onBenchmark: actions.onBenchmark,
     onNavigateLogs: navigate("/logs"),
     onNewRecipe: navigate("/recipes?new=1"),
