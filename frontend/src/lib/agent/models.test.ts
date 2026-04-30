@@ -6,7 +6,7 @@ describe("agent model normalization", () => {
     const models = normalizeOpenAIModels({
       data: [
         { id: "deepseek-v4-flash", context_window: 1_000_000, max_tokens: 262_144 },
-        { id: "tiny", metadata: { context_window: 4096, max_tokens: 512, reasoning: false } },
+        { id: "tiny", max_model_len: 4096, metadata: { max_tokens: 512, reasoning: false } },
         { id: "deepseek-v4-flash" },
       ],
     });

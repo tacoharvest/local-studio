@@ -6,6 +6,7 @@ export interface OpenAIModelListItem {
   name?: string;
   context_window?: number;
   contextWindow?: number;
+  max_model_len?: number;
   max_tokens?: number;
   maxTokens?: number;
   metadata?: Record<string, unknown>;
@@ -54,8 +55,10 @@ export function normalizeOpenAIModel(model: OpenAIModelListItem): AgentModel {
   const contextWindow =
     numberFromUnknown(model.contextWindow) ??
     numberFromUnknown(model.context_window) ??
+    numberFromUnknown(model.max_model_len) ??
     numberFromUnknown(metadata.contextWindow) ??
     numberFromUnknown(metadata.context_window) ??
+    numberFromUnknown(metadata.max_model_len) ??
     128_000;
   const maxTokens =
     numberFromUnknown(model.maxTokens) ??
