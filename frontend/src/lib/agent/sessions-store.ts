@@ -2,6 +2,7 @@ import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import readline from "node:readline";
 
 export type SessionSummary = {
@@ -17,6 +18,15 @@ export type SessionSummary = {
 };
 
 export type SessionEvent = Record<string, unknown> & { type?: string };
+
+type PiSessionInfo = { id: string; path: string };
+type PiSessionManager = {
+  list: (cwd: string) => Promise<PiSessionInfo[]>;
+  open: (sessionPath: string) => {
+    getHeader: () => (Record<string, unknown> & { type?: string }) | null;
+    getBranch: () => Array<Record<string, unknown> & { type?: string }>;
+  };
+};
 
 type ListSessionsOptions = {
   since?: Date;
@@ -35,6 +45,22 @@ function piSessionsRoot(): string {
   return process.env.PI_CODING_AGENT_DIR
     ? path.join(process.env.PI_CODING_AGENT_DIR, "sessions")
     : path.join(homedir(), ".pi", "agent", "sessions");
+}
+
+async function loadPiSessionManager(): Promise<PiSessionManager> {
+  const modulePath = path.join(
+    process.cwd(),
+    "node_modules",
+    "@mariozechner",
+    "pi-coding-agent",
+    "dist",
+    "core",
+    "session-manager.js",
+  );
+  const piModule = (await import(pathToFileURL(modulePath).href)) as {
+    SessionManager: PiSessionManager;
+  };
+  return piModule.SessionManager;
 }
 
 export function sessionsDirForCwd(cwd: string): string {
@@ -147,22 +173,22 @@ export async function listSessions(
 // Stream-load every event from a session JSONL. Used to replay a past
 // conversation back into the renderer's `applyPiEvent` pipeline.
 export async function loadSession(cwd: string, sessionId: string): Promise<SessionEvent[]> {
-  const dir = sessionsDirForCwd(cwd);
-  if (!existsSync(dir)) return [];
-  const match = readdirSync(dir).find((name) => name.includes(sessionId));
+  const SessionManager = await loadPiSessionManager();
+  const sessions = await SessionManager.list(cwd);
+  const match = sessions.find(
+    (session) =>
+      session.id === sessionId ||
+      session.id.startsWith(sessionId) ||
+      path.basename(session.path).includes(sessionId),
+  );
   if (!match) return [];
-  const events: SessionEvent[] = [];
-  const stream = createReadStream(path.join(dir, match), { encoding: "utf-8" });
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  for await (const line of rl) {
-    if (!line.trim()) continue;
-    try {
-      events.push(JSON.parse(line) as SessionEvent);
-    } catch {
-      // skip
-    }
-  }
-  return events;
+
+  const manager = SessionManager.open(match.path);
+  const header = manager.getHeader();
+  const entries = manager.getBranch();
+  return [header, ...entries]
+    .filter((entry): entry is Record<string, unknown> & { type?: string } => Boolean(entry))
+    .map((entry) => ({ ...entry }) as SessionEvent);
 }
 
 export async function deleteSession(cwd: string, sessionId: string): Promise<boolean> {

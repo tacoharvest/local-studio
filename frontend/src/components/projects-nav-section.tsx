@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import {
   ChatIcon,
   ChevronDownIcon,
@@ -17,6 +16,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { Button, UiModal, UiModalHeader } from "@/components/ui-kit";
 
 type ProjectEntry = {
   id: string;
@@ -40,11 +40,26 @@ type SessionSummary = {
   turnCount: number;
 };
 
-const DIRECTORY_PICKER_PROPS = { webkitdirectory: "" } as Record<string, string>;
+type DirectoryBrowserEntry = {
+  name: string;
+  path: string;
+};
+
+type DirectoryBrowserPayload = {
+  path: string;
+  parent: string | null;
+  home: string;
+  entries: DirectoryBrowserEntry[];
+  error?: string;
+};
+
 const ADD_PROJECT_EVENT = "vllm-studio.agent.addProject";
 export const SESSIONS_CHANGED_EVENT = "vllm-studio.agent.sessionsChanged";
 export const PROJECTS_CHANGED_EVENT = "vllm-studio.agent.projectsChanged";
 export const ACTIVE_AGENT_SESSIONS_EVENT = "vllm-studio.agent.activeSessions";
+export const NEW_AGENT_SESSION_EVENT = "vllm-studio.agent.newSession";
+export const ACTIVE_AGENT_SESSION_RENAME_EVENT = "vllm-studio.agent.activeSessionRename";
+export const ACTIVE_AGENT_SESSION_OPEN_EVENT = "vllm-studio.agent.activeSessionOpen";
 
 type ActiveAgentSession = {
   projectId: string;
@@ -87,6 +102,22 @@ function saveActiveAgentSessions(sessions: ActiveAgentSession[]) {
     return;
   }
   window.localStorage.setItem(ACTIVE_AGENT_SESSIONS_KEY, JSON.stringify(sessions));
+}
+
+function setAgentSessionDragData(
+  event: DragEvent,
+  session: {
+    piSessionId?: string | null;
+    paneId?: string;
+    tabId?: string;
+    title?: string;
+  },
+) {
+  if (session.piSessionId) {
+    event.dataTransfer.setData("application/x-vllm-session", session.piSessionId);
+  }
+  event.dataTransfer.setData("application/x-vllm-agent-session", JSON.stringify(session));
+  event.dataTransfer.effectAllowed = "copy";
 }
 
 function loadSessionPrefs(): Record<string, SessionPref> {
@@ -154,7 +185,6 @@ function notifyProjectsChanged() {
 
 type DesktopBridge = {
   openDirectory?: () => Promise<ProjectEntry | null>;
-  getPathForFile?: (file: File) => string;
   listProjects?: () => Promise<ProjectEntry[]>;
   removeProject?: (id: string) => Promise<{ ok: true }>;
 };
@@ -166,7 +196,6 @@ function getDesktopBridge(): DesktopBridge | null {
   if (!candidate) return null;
   const hasBridgeMethod =
     typeof candidate.openDirectory === "function" ||
-    typeof candidate.getPathForFile === "function" ||
     typeof candidate.listProjects === "function" ||
     typeof candidate.removeProject === "function";
   if (!hasBridgeMethod) return null;
@@ -201,6 +230,147 @@ function formatRelative(isoString: string): string {
   });
 }
 
+function ProjectDirectoryPickerModal({
+  open,
+  error,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  error: string;
+  onClose: () => void;
+  onSelect: (path: string) => void;
+}) {
+  const [currentPath, setCurrentPath] = useState("");
+  const [draftPath, setDraftPath] = useState("");
+  const [parentPath, setParentPath] = useState<string | null>(null);
+  const [homePath, setHomePath] = useState("");
+  const [entries, setEntries] = useState<DirectoryBrowserEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [browseError, setBrowseError] = useState("");
+
+  const loadDirectory = useCallback(async (directoryPath?: string) => {
+    setLoading(true);
+    setBrowseError("");
+    try {
+      const query = directoryPath ? `?path=${encodeURIComponent(directoryPath)}` : "";
+      const response = await fetch(`/api/agent/directories${query}`, { cache: "no-store" });
+      const payload = (await response.json()) as DirectoryBrowserPayload;
+      if (!response.ok) throw new Error(payload.error || "Failed to list directories");
+      setCurrentPath(payload.path);
+      setDraftPath(payload.path);
+      setParentPath(payload.parent);
+      setHomePath(payload.home);
+      setEntries(payload.entries ?? []);
+    } catch (loadError) {
+      setBrowseError(loadError instanceof Error ? loadError.message : "Failed to list directories");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadDirectory();
+  }, [open, loadDirectory]);
+
+  const goToDraftPath = () => {
+    const next = draftPath.trim();
+    if (next) void loadDirectory(next);
+  };
+
+  return (
+    <UiModal isOpen={open} onClose={onClose} maxWidth="max-w-3xl">
+      <UiModalHeader
+        title="Add project folder"
+        icon={<Folder className="h-4 w-4" />}
+        onClose={onClose}
+      />
+      <div className="space-y-4 p-5 text-sm text-(--fg)">
+        <p className="text-xs leading-5 text-(--dim)">
+          Browse folders on the machine running vLLM Studio, or paste an absolute path.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={draftPath}
+            onChange={(event) => setDraftPath(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") goToDraftPath();
+            }}
+            className="min-w-0 flex-1 rounded border border-(--border) bg-(--bg) px-3 py-2 font-mono text-xs text-(--fg) outline-none focus:border-(--accent)"
+            placeholder="/Users/name/project"
+            aria-label="Directory path"
+          />
+          <Button
+            variant="secondary"
+            onClick={goToDraftPath}
+            disabled={loading || !draftPath.trim()}
+          >
+            Go
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => homePath && void loadDirectory(homePath)}
+            disabled={!homePath || loading}
+          >
+            Home
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => parentPath && void loadDirectory(parentPath)}
+            disabled={!parentPath || loading}
+          >
+            Up
+          </Button>
+          <span className="truncate font-mono text-xs text-(--dim)" title={currentPath}>
+            {currentPath || "Loading…"}
+          </span>
+        </div>
+        <div className="h-72 overflow-auto rounded-lg border border-(--border) bg-(--bg)">
+          {loading ? (
+            <div className="px-3 py-8 text-center text-xs text-(--dim)">Loading folders…</div>
+          ) : entries.length === 0 ? (
+            <div className="px-3 py-8 text-center text-xs text-(--dim)">No subfolders found.</div>
+          ) : (
+            entries.map((entry) => (
+              <button
+                key={entry.path}
+                type="button"
+                onClick={() => void loadDirectory(entry.path)}
+                className="flex w-full items-center gap-2 border-b border-(--border)/50 px-3 py-2 text-left hover:bg-(--surface)"
+                title={entry.path}
+              >
+                <Folder className="h-4 w-4 shrink-0 text-(--dim)" />
+                <span className="truncate">{entry.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+        {(browseError || error) && (
+          <div className="rounded border border-(--err)/30 bg-(--err)/10 px-3 py-2 text-xs text-(--err)">
+            {browseError || error}
+          </div>
+        )}
+        <div className="flex justify-end gap-2 border-t border-(--border) pt-4">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => currentPath && onSelect(currentPath)}
+            disabled={!currentPath || loading}
+          >
+            Select this folder
+          </Button>
+        </div>
+      </div>
+    </UiModal>
+  );
+}
+
 /**
  * Collapsible PROJECTS section in the top-level left sidebar. Each project is
  * a folder; expanding it fetches and lists the recent sessions inside.
@@ -215,7 +385,7 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
     loadActiveAgentSessions(),
   );
   const [addError, setAddError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [directoryModalOpen, setDirectoryModalOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -294,29 +464,15 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
       }
       return;
     }
-    fileInputRef.current?.click();
+    setDirectoryModalOpen(true);
   };
 
-  const handleFolderSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleDirectoryPicked = async (directoryPath: string) => {
     setAddError("");
-    const firstFile = event.target.files?.[0];
-    event.target.value = "";
-    if (!firstFile) return;
-    const desktopBridge = getDesktopBridge();
-    const selectedPath =
-      desktopBridge?.getPathForFile?.(firstFile) || (firstFile as File & { path?: string }).path;
-    const relativeRoot = firstFile.webkitRelativePath.split("/")[0] ?? "";
-    const directoryPath =
-      selectedPath && relativeRoot
-        ? selectedPath.slice(0, selectedPath.lastIndexOf(relativeRoot) + relativeRoot.length)
-        : selectedPath;
-    if (!directoryPath) {
-      setAddError("This browser does not expose a selectable folder path.");
-      return;
-    }
     try {
       const project = await addProjectFromPath(directoryPath);
       upsertProject(project);
+      setDirectoryModalOpen(false);
       void loadProjects();
     } catch (error) {
       setAddError(error instanceof Error ? error.message : "Failed to add project");
@@ -353,29 +509,20 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
   }, []);
 
   if (!expanded) {
-    return (
-      <input
-        {...DIRECTORY_PICKER_PROPS}
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFolderSelection}
-      />
-    );
+    return null;
   }
 
   return (
     <div className="flex shrink-0 flex-col">
+      <ProjectDirectoryPickerModal
+        open={directoryModalOpen}
+        error={addError}
+        onClose={() => setDirectoryModalOpen(false)}
+        onSelect={(directoryPath) => void handleDirectoryPicked(directoryPath)}
+      />
       <div className="mt-2 flex h-7 items-center px-3 text-[10px] font-medium uppercase tracking-wide text-(--dim)">
         Projects
       </div>
-      <input
-        {...DIRECTORY_PICKER_PROPS}
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFolderSelection}
-      />
       <button
         type="button"
         onClick={handleAddProject}
@@ -584,6 +731,13 @@ function ProjectSessions({
     <div className="flex flex-col">
       <Link
         href={`/agent?project=${encodeURIComponent(project.id)}&new=1`}
+        onClick={(event) => {
+          if (window.location.pathname !== "/agent") return;
+          event.preventDefault();
+          window.dispatchEvent(
+            new CustomEvent(NEW_AGENT_SESSION_EVENT, { detail: { projectId: project.id } }),
+          );
+        }}
         className="h-8 flex items-center gap-2 pl-9 pr-3 text-(--dim) hover:text-(--fg) hover:bg-(--surface) transition-colors"
         title="Start a new chat in this project"
       >
@@ -693,12 +847,21 @@ function ActiveSessionRow({
   const finishRename = () => {
     const trimmed = draft.trim();
     if (session.piSessionId) patchSessionPref(session.piSessionId, { title: trimmed || undefined });
+    window.dispatchEvent(
+      new CustomEvent(ACTIVE_AGENT_SESSION_RENAME_EVENT, {
+        detail: { paneId: session.paneId, tabId: session.tabId, title: trimmed || session.title },
+      }),
+    );
     setRenaming(false);
   };
 
-  if (renaming && session.piSessionId) {
+  const isRunning = session.status !== "idle";
+  const rowClass =
+    "group h-8 flex items-center gap-2 border-l-2 border-(--accent) bg-(--surface)/60 animate-pulse pl-7 pr-2 text-(--fg) hover:bg-(--surface) transition-colors";
+
+  if (renaming) {
     return (
-      <div className="h-8 flex items-center gap-2 pl-9 pr-3 text-(--fg) bg-(--surface)/60">
+      <div className={rowClass}>
         <ChatIcon className="w-3 h-3 shrink-0 text-(--accent)" />
         <input
           autoFocus
@@ -722,51 +885,74 @@ function ActiveSessionRow({
     <>
       <ChatIcon className="w-3 h-3 shrink-0 text-(--accent)" />
       <span className="min-w-0 flex-1 truncate text-xs">{label}</span>
-      <span className="shrink-0 text-[10px] text-(--accent)">
-        {session.status === "idle" ? "current" : session.status}
-      </span>
+      {isRunning ? (
+        <span className="shrink-0 text-[10px] text-(--accent)">{session.status}</span>
+      ) : null}
     </>
   );
 
-  if (!session.piSessionId) {
-    return (
-      <div
-        title={label}
-        className="h-8 flex items-center gap-2 pl-9 pr-3 text-(--fg) bg-(--surface)/60"
-      >
-        {content}
-      </div>
-    );
-  }
-
-  const activeSessionId = session.piSessionId;
-
   return (
-    <div className="group h-8 flex items-center gap-2 pl-9 pr-2 text-(--fg) bg-(--surface)/60 hover:bg-(--surface) transition-colors">
-      <Link
-        href={`/agent?project=${encodeURIComponent(project.id)}&session=${encodeURIComponent(activeSessionId)}`}
-        title={label}
-        draggable
-        onDragStart={(event) => {
-          event.dataTransfer.setData("application/x-vllm-session", activeSessionId ?? "");
-          event.dataTransfer.effectAllowed = "copy";
-        }}
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          setDraft(pref.title ?? session.title ?? "");
-          setRenaming(true);
-        }}
-        className="flex min-w-0 flex-1 items-center gap-2"
-      >
-        {content}
-      </Link>
-      <Link
-        href={`/agent?project=${encodeURIComponent(project.id)}&session=${encodeURIComponent(activeSessionId)}&split=1`}
-        className="rounded px-1 text-[10px] text-(--dim) opacity-0 hover:bg-(--bg) hover:text-(--fg) group-hover:opacity-100"
-        title="Open beside focused session"
-      >
-        Split
-      </Link>
+    <div className={rowClass}>
+      {session.piSessionId ? (
+        <Link
+          href={`/agent?project=${encodeURIComponent(project.id)}&session=${encodeURIComponent(session.piSessionId)}`}
+          title={label}
+          draggable
+          onDragStart={(event) => setAgentSessionDragData(event, session)}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            setDraft(pref.title ?? session.title ?? "");
+            setRenaming(true);
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2"
+        >
+          {content}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          draggable
+          onDragStart={(event) => setAgentSessionDragData(event, session)}
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent(ACTIVE_AGENT_SESSION_OPEN_EVENT, {
+                detail: { paneId: session.paneId, tabId: session.tabId, mode: "focus" },
+              }),
+            );
+          }}
+          onDoubleClick={() => {
+            setDraft(pref.title ?? session.title ?? "");
+            setRenaming(true);
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          {content}
+        </button>
+      )}
+      {session.piSessionId ? (
+        <Link
+          href={`/agent?project=${encodeURIComponent(project.id)}&session=${encodeURIComponent(session.piSessionId)}&split=1`}
+          className="rounded px-1 text-[10px] text-(--dim) opacity-0 hover:bg-(--bg) hover:text-(--fg) group-hover:opacity-100"
+          title="Open beside focused session"
+        >
+          Split
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent(ACTIVE_AGENT_SESSION_OPEN_EVENT, {
+                detail: { paneId: session.paneId, tabId: session.tabId, mode: "split" },
+              }),
+            );
+          }}
+          className="rounded px-1 text-[10px] text-(--dim) opacity-0 hover:bg-(--bg) hover:text-(--fg) group-hover:opacity-100"
+          title="Open beside focused session"
+        >
+          Split
+        </button>
+      )}
       <div ref={menuRef} className="relative shrink-0">
         <button
           type="button"
@@ -795,7 +981,8 @@ function ActiveSessionRow({
             <SessionMenuItem
               onClick={() => {
                 setMenuOpen(false);
-                patchSessionPref(activeSessionId, { pinned: !pref.pinned });
+                if (session.piSessionId)
+                  patchSessionPref(session.piSessionId, { pinned: !pref.pinned });
               }}
             >
               {pref.pinned ? "Unpin" : "Pin"}
@@ -803,7 +990,8 @@ function ActiveSessionRow({
             <SessionMenuItem
               onClick={() => {
                 setMenuOpen(false);
-                patchSessionPref(activeSessionId, { hidden: !pref.hidden });
+                if (session.piSessionId)
+                  patchSessionPref(session.piSessionId, { hidden: !pref.hidden });
               }}
             >
               {pref.hidden ? "Unarchive" : "Archive"}
@@ -811,8 +999,8 @@ function ActiveSessionRow({
             <SessionMenuItem
               onClick={() => {
                 setMenuOpen(false);
-                if (window.confirm("Delete this session from disk?")) {
-                  void onDelete(activeSessionId);
+                if (session.piSessionId && window.confirm("Delete this session from disk?")) {
+                  void onDelete(session.piSessionId);
                 }
               }}
             >

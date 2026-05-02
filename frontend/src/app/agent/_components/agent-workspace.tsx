@@ -6,6 +6,9 @@ import { useSearchParams } from "next/navigation";
 import {
   loadAgentProjects,
   ACTIVE_AGENT_SESSIONS_EVENT,
+  ACTIVE_AGENT_SESSION_OPEN_EVENT,
+  ACTIVE_AGENT_SESSION_RENAME_EVENT,
+  NEW_AGENT_SESSION_EVENT,
   PROJECTS_CHANGED_EVENT,
   SESSIONS_CHANGED_EVENT,
   triggerAddProjectFlow,
@@ -15,7 +18,7 @@ import { ChevronDownIcon, CloseIcon, GitBranchIcon, PlusIcon } from "@/component
 import { AgentBrowser, type AgentBrowserHandle, type WebviewElement } from "./agent-browser";
 import { ChatPane, makeFreshTab, SessionTabsBar, type SessionTab } from "./chat-pane";
 import { FilesystemPanel } from "./filesystem-panel";
-import { PaneGrid } from "./pane-grid";
+import { PaneGrid, type SessionDropPayload } from "./pane-grid";
 import {
   collectLeaves,
   removeLeaf,
@@ -570,6 +573,7 @@ export function AgentWorkspace() {
       if (!target) return; // wait for projects to load
       if (selectedProjectId !== target.id) {
         selectProject(target);
+        if (newParam === "1" && !sessionParam) return;
       }
     }
     handledNavRef.current = key;
@@ -580,7 +584,7 @@ export function AgentWorkspace() {
         const cur = current.get(focusedPaneId);
         if (!cur) return current;
         const next = new Map(current);
-        next.set(focusedPaneId, { ...cur, tabs: [tab], activeTabId: tab.id });
+        next.set(focusedPaneId, { ...cur, tabs: [...cur.tabs, tab], activeTabId: tab.id });
         return next;
       });
       return;
@@ -723,9 +727,141 @@ export function AgentWorkspace() {
     window.dispatchEvent(new CustomEvent(ACTIVE_AGENT_SESSIONS_EVENT, { detail: { sessions } }));
   }, [activeProject, panesById]);
 
+  const openSessionPayloadInPane = useCallback((paneId: PaneId, payload: SessionDropPayload) => {
+    setPanesById((current) => {
+      const target = current.get(paneId);
+      if (!target) return current;
+      const next = new Map(current);
+      if (payload.piSessionId) {
+        const tab = makeFreshTab();
+        next.set(paneId, {
+          ...target,
+          tabs: [...target.tabs, tab],
+          activeTabId: tab.id,
+          initialSessionId: payload.piSessionId,
+        });
+        return next;
+      }
+      if (payload.paneId && payload.tabId) {
+        const source = current.get(payload.paneId);
+        const sourceTab = source?.tabs.find((tab) => tab.id === payload.tabId);
+        if (!sourceTab) return current;
+        const fresh = makeFreshTab();
+        const tab = {
+          ...sourceTab,
+          id: fresh.id,
+          runtimeSessionId: fresh.runtimeSessionId,
+        };
+        next.set(paneId, { ...target, tabs: [...target.tabs, tab], activeTabId: tab.id });
+      }
+      return next;
+    });
+    setFocusedPaneId(paneId);
+  }, []);
+
+  useEffect(() => {
+    const openFreshTab = (projectId?: string) => {
+      if (projectId) {
+        const target = projects.find((entry) => entry.id === projectId);
+        if (target && selectedProjectId !== target.id) {
+          selectProject(target);
+          return;
+        }
+      }
+      const tab = makeFreshTab();
+      setPanesById((current) => {
+        const cur = current.get(focusedPaneId) ?? current.values().next().value;
+        if (!cur) return current;
+        const paneId = current.has(focusedPaneId) ? focusedPaneId : [...current.keys()][0];
+        const next = new Map(current);
+        next.set(paneId, { ...cur, tabs: [...cur.tabs, tab], activeTabId: tab.id });
+        return next;
+      });
+    };
+
+    const onNewSession = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+      openFreshTab(detail?.projectId);
+    };
+    const onRename = (event: Event) => {
+      const detail = (event as CustomEvent<{ paneId?: PaneId; tabId?: string; title?: string }>)
+        .detail;
+      if (!detail?.paneId || !detail.tabId || !detail.title) return;
+      setPanesById((current) => {
+        const pane = current.get(detail.paneId as PaneId);
+        if (!pane) return current;
+        const next = new Map(current);
+        next.set(detail.paneId as PaneId, {
+          ...pane,
+          tabs: pane.tabs.map((tab) =>
+            tab.id === detail.tabId ? { ...tab, title: detail.title as string } : tab,
+          ),
+        });
+        return next;
+      });
+    };
+    const onOpen = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ paneId?: PaneId; tabId?: string; mode?: "focus" | "split" }>
+      ).detail;
+      if (!detail?.paneId || !detail.tabId) return;
+      if (detail.mode === "split") {
+        const leaves = collectLeaves(layout);
+        const id = newPaneId();
+        const source = panesById.get(detail.paneId);
+        const sourceTab = source?.tabs.find((tab) => tab.id === detail.tabId);
+        const fresh = makeFreshTab();
+        const tab = sourceTab
+          ? { ...sourceTab, id: fresh.id, runtimeSessionId: fresh.runtimeSessionId }
+          : fresh;
+        if (leaves.length >= 2) {
+          const targetPaneId = leaves.find((leafId) => leafId !== focusedPaneId) ?? focusedPaneId;
+          setPanesById((current) => {
+            const target = current.get(targetPaneId);
+            if (!target) return current;
+            const next = new Map(current);
+            next.set(targetPaneId, {
+              ...target,
+              tabs: [...target.tabs, tab],
+              activeTabId: tab.id,
+            });
+            return next;
+          });
+          setFocusedPaneId(targetPaneId);
+          return;
+        }
+        setPanesById((current) => {
+          const next = new Map(current);
+          next.set(id, { tabs: [tab], activeTabId: tab.id, runtimeSessionId: newRuntimeId() });
+          return next;
+        });
+        setLayout((prev) => splitLeaf(prev, focusedPaneId, id, "vertical", "b"));
+        setFocusedPaneId(id);
+        return;
+      }
+      setFocusedPaneId(detail.paneId);
+      setPanesById((current) => {
+        const pane = current.get(detail.paneId as PaneId);
+        if (!pane) return current;
+        const next = new Map(current);
+        next.set(detail.paneId as PaneId, { ...pane, activeTabId: detail.tabId as string });
+        return next;
+      });
+    };
+
+    window.addEventListener(NEW_AGENT_SESSION_EVENT, onNewSession);
+    window.addEventListener(ACTIVE_AGENT_SESSION_RENAME_EVENT, onRename);
+    window.addEventListener(ACTIVE_AGENT_SESSION_OPEN_EVENT, onOpen);
+    return () => {
+      window.removeEventListener(NEW_AGENT_SESSION_EVENT, onNewSession);
+      window.removeEventListener(ACTIVE_AGENT_SESSION_RENAME_EVENT, onRename);
+      window.removeEventListener(ACTIVE_AGENT_SESSION_OPEN_EVENT, onOpen);
+    };
+  }, [focusedPaneId, layout, panesById, projects, selectProject, selectedProjectId]);
+
   return (
-    <div className="flex h-[calc(100dvh-2.5rem)] min-h-0 w-full flex-col bg-(--bg) text-(--fg) md:h-[100dvh]">
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-(--border) px-3">
+    <div className="agent-workspace flex h-full min-h-0 w-full flex-col bg-(--bg) text-(--fg) md:h-[100dvh]">
+      <header className="agent-workspace-header flex h-11 shrink-0 items-center gap-3 border-b border-(--border) px-3">
         <div className="flex shrink-0 items-center gap-1.5 text-sm">
           <span className="font-semibold tracking-tight text-[13px]">Agent</span>
           {activeProject ? (
@@ -744,6 +880,7 @@ export function AgentWorkspace() {
 
         {focusedPane ? (
           <SessionTabsBar
+            paneId={focusedPaneId}
             tabs={focusedPane.tabs}
             activeTabId={focusedPane.activeTabId}
             onTabsChange={(nextTabsOrUpdater) => {
@@ -917,11 +1054,29 @@ export function AgentWorkspace() {
                       runtimeSessionId: runtime,
                       initialSessionId: payload.piSessionId ?? null,
                     });
+                    if (!payload.piSessionId && payload.paneId && payload.tabId) {
+                      const source = current.get(payload.paneId);
+                      const sourceTab = source?.tabs.find((tab) => tab.id === payload.tabId);
+                      if (sourceTab) {
+                        next.set(id, {
+                          tabs: [
+                            {
+                              ...sourceTab,
+                              id: baseTab.id,
+                              runtimeSessionId: baseTab.runtimeSessionId,
+                            },
+                          ],
+                          activeTabId: baseTab.id,
+                          runtimeSessionId: runtime,
+                        });
+                      }
+                    }
                     return next;
                   });
                   setLayout((prev) => splitLeaf(prev, paneId, id, direction, side));
                   setFocusedPaneId(id);
                 }}
+                onOpenTab={openSessionPayloadInPane}
                 onResize={(path, ratio) => {
                   setLayout((prev) => setSplitRatio(prev, path, ratio));
                 }}

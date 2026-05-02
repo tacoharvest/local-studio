@@ -257,6 +257,10 @@ function formatTokenCount(tokens: number): string {
   return String(Math.max(0, Math.round(tokens)));
 }
 
+export function sessionTitleFromPrompt(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 48) || "New session";
+}
+
 function messageText(
   content: string | Array<Record<string, unknown>> | undefined,
   separator = "\n",
@@ -348,7 +352,7 @@ export function replaySessionEvents(events: Record<string, unknown>[]) {
         pendingAssistantId = null;
         const text = messageText(msg.content);
         if (text) {
-          if (!title) title = text.slice(0, 40);
+          if (!title) title = sessionTitleFromPrompt(text);
           replayed.push({ id: newId("user"), role: "user", text, timestamp: nowLabel() });
         }
         continue;
@@ -829,7 +833,7 @@ export function ChatPane({
         status: "starting",
         title:
           tab.messages.filter((m) => m.role === "user").length === 0
-            ? userText.slice(0, 40)
+            ? sessionTitleFromPrompt(userText)
             : tab.title,
         messages: [
           ...tab.messages,
@@ -1359,12 +1363,14 @@ export function ChatPane({
 }
 
 export function SessionTabsBar({
+  paneId,
   tabs,
   activeTabId,
   onActiveTabChange,
   onTabsChange,
   onRenameTab,
 }: {
+  paneId: string;
   tabs: SessionTab[];
   activeTabId: string;
   onActiveTabChange: (tabId: string) => void;
@@ -1398,6 +1404,7 @@ export function SessionTabsBar({
         <TabPill
           key={tab.id}
           tab={tab}
+          paneId={paneId}
           active={tab.id === activeTabId}
           onSelect={() => onActiveTabChange(tab.id)}
           onClose={() => closeTab(tab.id)}
@@ -1419,12 +1426,14 @@ export function SessionTabsBar({
 
 function TabPill({
   tab,
+  paneId,
   active,
   onSelect,
   onClose,
   onRename,
 }: {
   tab: SessionTab;
+  paneId: string;
   active: boolean;
   onSelect: () => void;
   onClose: () => void;
@@ -1443,13 +1452,15 @@ function TabPill({
     <div
       role="tab"
       aria-selected={active}
-      draggable={Boolean(tab.piSessionId)}
+      draggable
       onDragStart={(event) => {
-        if (!tab.piSessionId) {
-          event.preventDefault();
-          return;
+        if (tab.piSessionId) {
+          event.dataTransfer.setData("application/x-vllm-session", tab.piSessionId);
         }
-        event.dataTransfer.setData("application/x-vllm-session", tab.piSessionId);
+        event.dataTransfer.setData(
+          "application/x-vllm-agent-session",
+          JSON.stringify({ piSessionId: tab.piSessionId, paneId, tabId: tab.id, title: tab.title }),
+        );
         event.dataTransfer.effectAllowed = "copy";
       }}
       onClick={onSelect}
