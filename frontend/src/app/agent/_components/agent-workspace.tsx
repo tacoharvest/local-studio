@@ -18,6 +18,7 @@ import { ChevronDownIcon, CloseIcon, GitBranchIcon, PlusIcon } from "@/component
 import { AgentBrowser, type AgentBrowserHandle, type WebviewElement } from "./agent-browser";
 import { ChatPane, makeFreshTab, SessionTabsBar, type SessionTab } from "./chat-pane";
 import { FilesystemPanel } from "./filesystem-panel";
+import { GitDiffPanel } from "./git-diff-panel";
 import { PaneGrid, type SessionDropPayload } from "./pane-grid";
 import {
   collectLeaves,
@@ -118,7 +119,7 @@ const COMPUTER_FILES_OPEN_KEY = "vllm-studio.agent.computer.filesOpen";
 const COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY = "vllm-studio.agent.computer.defaultClosedMigrated";
 const PANE_LAYOUT_KEY = "vllm-studio.agent.paneLayout";
 
-type ComputerTab = "browser" | "files";
+type ComputerTab = "browser" | "files" | "diff";
 
 function newPaneId(): PaneId {
   return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -144,7 +145,7 @@ export function AgentWorkspace() {
   const [agentCwd, setAgentCwd] = useState(DEFAULT_AGENT_CWD);
   const [error, setError] = useState("");
   const [loadingModels, setLoadingModels] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [browserUrl, setBrowserUrl] = useState("https://www.google.com");
   const [browserInput, setBrowserInput] = useState("https://www.google.com");
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
@@ -411,12 +412,13 @@ export function AgentWorkspace() {
     if (browserOn === "1") setBrowserToolEnabled(true);
     const computerMigrated = window.localStorage.getItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY);
     if (!computerMigrated) {
-      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "0");
+      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "1");
       window.localStorage.setItem(COMPUTER_FILES_OPEN_KEY, "0");
       window.localStorage.setItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY, "1");
     }
     const filesOpenStored = window.localStorage.getItem(COMPUTER_FILES_OPEN_KEY);
     setActiveComputerTab(filesOpenStored === "1" ? "files" : "browser");
+    setRightPanelOpen(window.localStorage.getItem(COMPUTER_BROWSER_OPEN_KEY) !== "0");
     const storedComputerWidth = Number(window.localStorage.getItem(COMPUTER_WIDTH_KEY));
     if (Number.isFinite(storedComputerWidth)) {
       setComputerWidth(clampComputerWidth(storedComputerWidth));
@@ -462,7 +464,7 @@ export function AgentWorkspace() {
   const selectComputerTab = useCallback((tab: ComputerTab) => {
     setActiveComputerTab(tab);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, tab === "browser" ? "1" : "0");
+      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "1");
       window.localStorage.setItem(COMPUTER_FILES_OPEN_KEY, tab === "files" ? "1" : "0");
     }
   }, []);
@@ -707,6 +709,8 @@ export function AgentWorkspace() {
   );
   const focusedPane = panesById.get(focusedPaneId) ?? panesById.values().next().value ?? null;
   const focusedTab = focusedPane?.tabs.find((tab) => tab.id === focusedPane.activeTabId) ?? null;
+  const focusedTabIsNew =
+    Boolean(focusedTab) && !focusedTab?.piSessionId && (focusedTab?.messages.length ?? 0) === 0;
   const shouldShowProjectEmptyState =
     projectsLoaded && !searchParams.get("project") && !selectedProjectId && projects.length === 0;
 
@@ -929,11 +933,36 @@ export function AgentWorkspace() {
           loading={loadingModels}
         />
 
+        {focusedTabIsNew && projects.length > 0 ? (
+          <select
+            value={selectedProjectId ?? ""}
+            onChange={(event) => {
+              const project = projects.find((entry) => entry.id === event.target.value);
+              if (project) selectProject(project);
+            }}
+            className="hidden h-7 max-w-[220px] rounded border border-(--border) bg-(--surface) px-2 font-mono text-[11px] text-(--fg) outline-none hover:bg-(--bg) md:block"
+            title="Change directory for this new session"
+            aria-label="New session directory"
+          >
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.path}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <button
           type="button"
-          onClick={() => setRightPanelOpen((value) => !value)}
+          onClick={() =>
+            setRightPanelOpen((value) => {
+              const next = !value;
+              window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, next ? "1" : "0");
+              return next;
+            })
+          }
           aria-pressed={rightPanelOpen}
-          className={`hidden h-7 items-center gap-1.5 rounded border px-2 text-xs xl:inline-flex ${
+          className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded border px-2 text-xs ${
             rightPanelOpen
               ? "border-(--border) bg-(--surface) text-(--fg)"
               : "border-transparent text-(--dim) hover:text-(--fg) hover:bg-(--surface)"
@@ -1087,9 +1116,9 @@ export function AgentWorkspace() {
 
         {rightPanelOpen ? (
           <aside
-            className="relative hidden shrink-0 flex-col border-l border-(--border) bg-(--bg) xl:flex"
+            className="relative flex shrink-0 flex-col border-l border-(--border) bg-(--bg)"
             ref={computerAsideRef}
-            style={{ width: computerWidth }}
+            style={{ width: `min(${computerWidth}px, 48vw)` }}
           >
             <div
               role="separator"
@@ -1129,7 +1158,21 @@ export function AgentWorkspace() {
               </button>
               <button
                 type="button"
-                onClick={() => setRightPanelOpen(false)}
+                onClick={() => selectComputerTab("diff")}
+                className={`h-6 shrink-0 rounded px-2 font-medium uppercase tracking-wide ${
+                  activeComputerTab === "diff"
+                    ? "bg-(--surface) text-(--fg)"
+                    : "hover:bg-(--surface) hover:text-(--fg)"
+                }`}
+              >
+                Diff
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRightPanelOpen(false);
+                  window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "0");
+                }}
                 className="ml-1 rounded p-1 hover:bg-(--surface) hover:text-(--fg)"
                 title="Close"
                 aria-label="Close computer"
@@ -1148,12 +1191,14 @@ export function AgentWorkspace() {
                 onClose={() => setRightPanelOpen(false)}
                 isElectron={isElectron}
               />
-            ) : (
+            ) : activeComputerTab === "files" ? (
               <section className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1">
                   <FilesystemPanel cwd={activeProject?.path ?? null} />
                 </div>
               </section>
+            ) : (
+              <GitDiffPanel cwd={activeProject?.path ?? null} />
             )}
           </aside>
         ) : null}
@@ -1214,9 +1259,6 @@ function ModelPicker({
           <div className="max-h-72 overflow-y-auto p-1">
             {models.map((model) => {
               const isActive = model.id === selectedModel;
-              const ctxLabel = model.contextWindow
-                ? `${Math.round(model.contextWindow / 1024)}k`
-                : null;
               return (
                 <button
                   key={model.id}
@@ -1234,9 +1276,6 @@ function ModelPicker({
                   </span>
                   {model.reasoning ? (
                     <span className="shrink-0 text-[10px] text-(--dim)">· reasoning</span>
-                  ) : null}
-                  {ctxLabel ? (
-                    <span className="shrink-0 text-[10px] text-(--dim)">· {ctxLabel}</span>
                   ) : null}
                 </button>
               );

@@ -40,6 +40,8 @@ type SessionSummary = {
   turnCount: number;
 };
 
+type PinnedSession = SessionSummary & { project: ProjectEntry };
+
 type DirectoryBrowserEntry = {
   name: string;
   path: string;
@@ -386,6 +388,17 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
   );
   const [addError, setAddError] = useState("");
   const [directoryModalOpen, setDirectoryModalOpen] = useState(false);
+  const [pinnedSessions, setPinnedSessions] = useState<PinnedSession[]>([]);
+  const prefs = useSessionPrefs();
+  const pinnedActiveSessions = activeSessions
+    .filter((session) => session.piSessionId && prefs[session.piSessionId]?.pinned)
+    .map((session) => ({
+      session,
+      project: projects.find((project) => project.id === session.projectId),
+    }))
+    .filter((entry): entry is { session: ActiveAgentSession; project: ProjectEntry } =>
+      Boolean(entry.project),
+    );
 
   const loadProjects = useCallback(async () => {
     try {
@@ -508,6 +521,42 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
     return () => window.removeEventListener(ACTIVE_AGENT_SESSIONS_EVENT, onActiveSessions);
   }, []);
 
+  useEffect(() => {
+    if (!expanded || projects.length === 0) {
+      queueMicrotask(() => setPinnedSessions([]));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const rows = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const response = await fetch(
+              `/api/agent/sessions?cwd=${encodeURIComponent(project.path)}&since=30d`,
+              { cache: "no-store" },
+            );
+            const payload = (await response.json()) as { sessions?: SessionSummary[] };
+            return (payload.sessions ?? [])
+              .filter((session) => prefs[session.id]?.pinned && !prefs[session.id]?.hidden)
+              .map((session) => ({ ...session, project }));
+          } catch {
+            return [];
+          }
+        }),
+      );
+      if (!cancelled) {
+        setPinnedSessions(
+          rows
+            .flat()
+            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, projects, prefs]);
+
   if (!expanded) {
     return null;
   }
@@ -520,6 +569,53 @@ export function ProjectsNavSection({ expanded }: { expanded: boolean }) {
         onClose={() => setDirectoryModalOpen(false)}
         onSelect={(directoryPath) => void handleDirectoryPicked(directoryPath)}
       />
+      {pinnedSessions.length > 0 || pinnedActiveSessions.length > 0 ? (
+        <div className="flex flex-col border-b border-(--border)/60 pb-1">
+          <div className="mt-2 flex h-7 items-center gap-2 px-3 text-[10px] font-medium uppercase tracking-wide text-(--dim)">
+            <PinIcon className="h-3 w-3" />
+            Pinned sessions
+          </div>
+          {pinnedActiveSessions.map(({ session, project }) => (
+            <ActiveSessionRow
+              key={`${session.paneId}:${session.tabId}`}
+              project={project}
+              session={session}
+              pref={session.piSessionId ? (prefs[session.piSessionId] ?? {}) : {}}
+              onDelete={async (sessionId) => {
+                const response = await fetch(
+                  `/api/agent/sessions?cwd=${encodeURIComponent(project.path)}&id=${encodeURIComponent(sessionId)}`,
+                  { method: "DELETE" },
+                );
+                if (!response.ok) {
+                  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+                  throw new Error(payload.error || "Failed to delete session");
+                }
+                removeSessionPref(sessionId);
+              }}
+            />
+          ))}
+          {pinnedSessions.map((session) => (
+            <SessionRow
+              key={`${session.project.id}:${session.id}`}
+              project={session.project}
+              session={session}
+              pref={prefs[session.id] ?? {}}
+              onDelete={async (sessionId) => {
+                const response = await fetch(
+                  `/api/agent/sessions?cwd=${encodeURIComponent(session.project.path)}&id=${encodeURIComponent(sessionId)}`,
+                  { method: "DELETE" },
+                );
+                if (!response.ok) {
+                  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+                  throw new Error(payload.error || "Failed to delete session");
+                }
+                removeSessionPref(sessionId);
+                setPinnedSessions((current) => current.filter((row) => row.id !== sessionId));
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="mt-2 flex h-7 items-center px-3 text-[10px] font-medium uppercase tracking-wide text-(--dim)">
         Projects
       </div>
@@ -713,17 +809,19 @@ function ProjectSessions({
 
   const visibleActiveSessions = projectActiveSessions.filter((session) => {
     if (!session.piSessionId) return true;
-    return showHidden || !prefs[session.piSessionId]?.hidden;
+    const pref = prefs[session.piSessionId];
+    if (pref?.pinned) return false;
+    return showHidden || !pref?.hidden;
   });
 
-  const allRecent = (sessions ?? []).filter((session) => !activePiSessionIds.has(session.id));
-  const pinned: SessionSummary[] = [];
+  const allRecent = (sessions ?? []).filter(
+    (session) => !activePiSessionIds.has(session.id) && !prefs[session.id]?.pinned,
+  );
   const recent: SessionSummary[] = [];
   const hidden: SessionSummary[] = [];
   for (const session of allRecent) {
     const pref = prefs[session.id] ?? {};
     if (pref.hidden) hidden.push(session);
-    else if (pref.pinned) pinned.push(session);
     else recent.push(session);
   }
 
@@ -761,25 +859,6 @@ function ProjectSessions({
         <div className="pl-9 pr-3 py-1 text-[11px] text-(--dim)">No recent sessions</div>
       ) : (
         <>
-          {pinned.length > 0 ? (
-            <div className="pl-9 pr-3 pt-1 text-[9px] font-medium uppercase tracking-wide text-(--dim)">
-              Pinned
-            </div>
-          ) : null}
-          {pinned.map((session) => (
-            <SessionRow
-              key={session.id}
-              project={project}
-              session={session}
-              pref={prefs[session.id] ?? {}}
-              onDelete={deleteSessionById}
-            />
-          ))}
-          {recent.length > 0 && pinned.length > 0 ? (
-            <div className="pl-9 pr-3 pt-1 text-[9px] font-medium uppercase tracking-wide text-(--dim)">
-              Recent
-            </div>
-          ) : null}
           {recent.map((session) => (
             <SessionRow
               key={session.id}
@@ -883,7 +962,11 @@ function ActiveSessionRow({
 
   const content = (
     <>
-      <ChatIcon className="w-3 h-3 shrink-0 text-(--accent)" />
+      {pref.pinned ? (
+        <PinIcon className="w-3 h-3 shrink-0 text-(--accent)" />
+      ) : (
+        <ChatIcon className="w-3 h-3 shrink-0 text-(--accent)" />
+      )}
       <span className="min-w-0 flex-1 truncate text-xs">{label}</span>
       {isRunning ? (
         <span className="shrink-0 text-[10px] text-(--accent)">{session.status}</span>

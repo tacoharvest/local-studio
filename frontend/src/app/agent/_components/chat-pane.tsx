@@ -584,6 +584,7 @@ export function ChatPane({
     [tabs, activeTabId],
   );
   const running = activeTab?.status === "running" || activeTab?.status === "starting";
+  const showEmptyPrompt = activeTab && activeTab.messages.length === 0 && !running;
 
   const updateTab = useCallback(
     (tabId: string, patch: (tab: SessionTab) => SessionTab) => {
@@ -1113,7 +1114,7 @@ export function ChatPane({
     <section
       onMouseDownCapture={onFocus}
       data-pane-id={paneId}
-      className={`flex min-w-0 min-h-0 flex-1 flex-col bg-(--bg) ${isFocused ? "" : "opacity-95"}`}
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-(--bg)"
     >
       {activeTab?.error ? (
         <div className="border-b border-(--border) bg-(--err)/10 px-4 py-2 text-xs text-(--err)">
@@ -1129,11 +1130,11 @@ export function ChatPane({
             element.scrollHeight - element.scrollTop - element.clientHeight;
           stickToBottomRef.current = distanceFromBottom <= 80;
         }}
-        className="min-h-0 flex-1 overflow-y-auto px-6 py-8"
+        className={`min-h-0 flex-1 overflow-y-auto px-6 py-8 ${showEmptyPrompt ? "flex" : ""}`}
       >
-        <div className="mx-auto w-full max-w-3xl">
-          {activeTab && activeTab.messages.length === 0 && !running ? (
-            <div className="flex min-h-[40vh] flex-col items-center justify-center text-center gap-2">
+        <div className={`mx-auto w-full max-w-3xl ${showEmptyPrompt ? "flex flex-1" : ""}`}>
+          {showEmptyPrompt ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
               <h1 className="text-xl font-semibold tracking-tight text-(--fg)">
                 What should we work on{projectName ? ` in ${projectName}` : ""}?
               </h1>
