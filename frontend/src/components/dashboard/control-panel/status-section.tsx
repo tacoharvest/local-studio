@@ -1,7 +1,7 @@
 // CRITICAL
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GPU, Metrics, ProcessInfo, RecipeWithStatus, RuntimePlatformKind } from "@/lib/types";
 import { toGB, toGBFromMB } from "@/lib/formatters";
 
@@ -69,117 +69,387 @@ export function StatusSection({
     metrics?.session_peak_generation,
     metrics?.peak_generation_tps,
   );
-  const peakPrefillTps = firstPositive(
-    metrics?.session_peak_prompt_throughput,
-    metrics?.session_peak_prefill,
-    metrics?.peak_prefill_tps,
-  );
   const peakTtftMs = firstPositive(metrics?.session_peak_ttft_ms, metrics?.peak_ttft_ms);
   const peakReq = metrics?.session_peak_running_requests ?? 0;
+  const samples = useMetricSamples({
+    generation: genTps,
+    prefill: prefillTps,
+    ttft: ttftMs,
+    requests: sessions,
+    active: isRunning,
+  });
 
-  return (
-    <div className="border border-(--border) bg-(--surface)">
-      {/* Stable command header. Text uses sans; figures stay mono. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-(--border) px-3 py-2.5">
-        <div className="flex min-w-[16rem] flex-1 items-center gap-2.5">
-          <StatusDot running={isRunning} />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-[0.11em] text-(--dim)">
-                {isRunning ? "Active" : "Standby"}
-              </span>
-              {!isConnected && <Tag tone="err">offline</Tag>}
-              {backend && <Tag>{backend}</Tag>}
-              {platformKind && <Tag>{platformKind}</Tag>}
-              {inferencePort && (
-                <span className="font-mono text-[10px] tabular-nums text-(--dim)">
-                  :{inferencePort}
-                </span>
-              )}
-            </div>
-            <div
-              className="mt-0.5 truncate text-sm font-semibold leading-5 text-(--fg)"
-              title={modelName || ""}
-            >
+  const headerActions = (
+    <div className="flex items-center gap-1.5">
+      {recipes && onLaunch && (
+        <ModelsDropdown
+          recipes={recipes}
+          currentRecipeId={currentRecipe?.id}
+          lifecycleStatus={lifecycleStatus ?? "idle"}
+          onLaunch={onLaunch}
+          onNewRecipe={onNewRecipe}
+          onViewAll={onViewAll}
+        />
+      )}
+      <ActionBtn label="Logs" onClick={onNavigateLogs} />
+      {isRunning ? (
+        <ActionBtn
+          label={benchmarking ? "Run" : "Bench"}
+          onClick={onBenchmark}
+          disabled={benchmarking}
+        />
+      ) : (
+        <ActionBtn label="Bench" onClick={onBenchmark} disabled />
+      )}
+    </div>
+  );
+
+  const statusLine = (
+    <div className="flex flex-wrap items-center gap-2 text-[11px] tracking-[0.04em]">
+      <StatusDot running={isRunning} />
+      <span className="font-medium uppercase tracking-[0.14em] text-(--dim)">
+        {isRunning ? "Active" : "Standby"}
+      </span>
+      {!isConnected && <Tag tone="err">offline</Tag>}
+      {backend && <Tag>{backend}</Tag>}
+      {platformKind && <Tag>{platformKind}</Tag>}
+      {inferencePort && (
+        <span className="font-mono text-[10px] tabular-nums text-(--dim)/70">:{inferencePort}</span>
+      )}
+    </div>
+  );
+
+  // STANDBY — quiet, intentional, no skeleton stats. Just identity + CTA.
+  if (!isRunning) {
+    return (
+      <section className="px-2 pt-2 pb-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {statusLine}
+            <h1 className="mt-2 truncate text-[26px] font-semibold leading-tight tracking-[-0.01em] text-(--fg)">
               {modelName || "No model loaded"}
-            </div>
+            </h1>
+            <p className="mt-1.5 text-[13px] leading-snug text-(--dim)">
+              {modelName
+                ? "Ready to launch — pick this recipe from the Models menu to start serving."
+                : "Pick a recipe from the Models menu to start streaming live metrics."}
+            </p>
           </div>
+          {headerActions}
         </div>
+      </section>
+    );
+  }
 
-        <div className="flex items-center gap-1.5">
-          {recipes && onLaunch && (
-            <ModelsDropdown
-              recipes={recipes}
-              currentRecipeId={currentRecipe?.id}
-              lifecycleStatus={lifecycleStatus ?? "idle"}
-              onLaunch={onLaunch}
-              onNewRecipe={onNewRecipe}
-              onViewAll={onViewAll}
-            />
-          )}
-          <ActionBtn label="Logs" onClick={onNavigateLogs} disabled={!isRunning} />
-          {isRunning ? (
-            <ActionBtn
-              label={benchmarking ? "Run" : "Bench"}
-              onClick={onBenchmark}
-              disabled={benchmarking}
-            />
-          ) : (
-            <ActionBtn label="Bench" onClick={onBenchmark} disabled />
-          )}
+  // ACTIVE — model name hero, metrics, and quiet inline trends on one operator sheet.
+  return (
+    <section className="px-2 pt-2 pb-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {statusLine}
+          <h1
+            className="mt-1.5 truncate text-[22px] font-semibold leading-tight tracking-[-0.01em] text-(--fg)"
+            title={modelName || ""}
+          >
+            {modelName || "Active"}
+          </h1>
         </div>
+        {headerActions}
       </div>
 
-      {/* Flat stat strip — always rendered so standby/loading has the same footprint as active. */}
-      <div className="grid grid-cols-3 divide-x divide-(--border) xl:grid-cols-6">
-        <Stat
+      <div className="mt-5 grid grid-cols-1 gap-x-12 gap-y-4 sm:grid-cols-2">
+        <HeroStat
           label="Decode"
-          value={isRunning ? genTps.toFixed(1) : "—"}
-          unit={isRunning ? "t/s" : ""}
-          detail={peakGenTps > 0 ? `max ${peakGenTps.toFixed(1)}` : "max —"}
+          value={genTps > 0 ? genTps.toFixed(1) : null}
+          unit="tok/s"
+          detail={peakGenTps > 0 ? `peak ${peakGenTps.toFixed(1)}` : undefined}
         />
-        <Stat
-          label="Prefill"
-          value={isRunning ? prefillTps.toFixed(1) : "—"}
-          unit={isRunning ? "t/s" : ""}
-          detail={peakPrefillTps > 0 ? `max ${peakPrefillTps.toFixed(1)}` : "max —"}
-        />
-        <Stat
+        <HeroStat
           label="TTFT"
-          value={isRunning && ttftMs > 0 ? ttftMs.toFixed(0) : "—"}
-          unit={isRunning && ttftMs > 0 ? "ms" : ""}
-          detail={peakTtftMs > 0 ? `max ${peakTtftMs.toFixed(0)}ms` : "max —"}
+          value={ttftMs > 0 ? ttftMs.toFixed(0) : null}
+          unit="ms"
+          detail={peakTtftMs > 0 ? `peak ${peakTtftMs.toFixed(0)}` : undefined}
         />
-        <Stat
-          label="Req"
-          value={isRunning ? String(sessions) : "—"}
-          unit=""
-          detail={peakReq > 0 ? `max ${peakReq}` : "max —"}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1.5 font-mono text-[11.5px] tabular-nums text-(--dim)">
+        <Inline label="Prefill">
+          <Pair value={prefillTps > 0 ? prefillTps.toFixed(1) : null} unit="t/s" />
+        </Inline>
+        <Inline label="Req">
+          <Pair value={sessions > 0 ? String(sessions) : null} unit="" />
+          {peakReq > 0 ? <span className="text-(--dim)/55">peak {peakReq}</span> : null}
+        </Inline>
+        <Inline label="VRAM">
+          <Pair
+            value={totalMemUsed > 0 ? totalMemUsed.toFixed(1) : null}
+            unit={vramCapacity > 0 ? `/${vramCapacity.toFixed(0)}G` : "G"}
+          />
+        </Inline>
+        <Inline label="Power">
+          <Pair
+            value={totalPower > 0 ? String(Math.round(totalPower)) : null}
+            unit={powerLimit > 0 ? `/${Math.round(powerLimit)}W` : "W"}
+          />
+        </Inline>
+      </div>
+
+      <MetricTrends samples={samples} />
+    </section>
+  );
+}
+
+type MetricSample = {
+  at: number;
+  generation: number;
+  prefill: number;
+  ttft: number;
+  requests: number;
+};
+
+function useMetricSamples({
+  generation,
+  prefill,
+  ttft,
+  requests,
+  active,
+}: {
+  generation: number;
+  prefill: number;
+  ttft: number;
+  requests: number;
+  active: boolean;
+}) {
+  const samplesRef = useRef<MetricSample[]>([]);
+
+  if (!active) return [];
+
+  const next: MetricSample = {
+    at: Date.now(),
+    generation: finitePositive(generation),
+    prefill: finitePositive(prefill),
+    ttft: finitePositive(ttft),
+    requests: finitePositive(requests),
+  };
+  const current = samplesRef.current;
+  const previous = current[current.length - 1];
+  if (
+    !previous ||
+    previous.generation !== next.generation ||
+    previous.prefill !== next.prefill ||
+    previous.ttft !== next.ttft ||
+    previous.requests !== next.requests
+  ) {
+    samplesRef.current = [...current, next].slice(-56);
+  }
+
+  return samplesRef.current;
+}
+
+function MetricTrends({ samples }: { samples: MetricSample[] }) {
+  const hasThroughput = samples.some((sample) => sample.generation > 0 || sample.prefill > 0);
+  const hasLatency = samples.some((sample) => sample.ttft > 0 || sample.requests > 0);
+
+  return (
+    <div className="mt-6 border-t border-(--border)/40 pt-3">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
+        <TrendPanel
+          label="Throughput"
+          meta="last samples"
+          empty={!hasThroughput}
+          lines={[
+            { values: samples.map((sample) => sample.prefill), className: "text-(--dim)/35" },
+            { values: samples.map((sample) => sample.generation), className: "text-(--fg)/80" },
+          ]}
         />
-        <Stat
-          label="VRAM"
-          value={totalMemUsed > 0 ? totalMemUsed.toFixed(1) : "—"}
-          unit={vramCapacity > 0 ? `/${vramCapacity.toFixed(0)}G` : ""}
-        />
-        <Stat
-          label="Power"
-          value={totalPower > 0 ? String(Math.round(totalPower)) : "—"}
-          unit={powerLimit > 0 ? `/${Math.round(powerLimit)}W` : ""}
+        <TrendPanel
+          label="TTFT / req"
+          meta="live"
+          empty={!hasLatency}
+          lines={[
+            { values: samples.map((sample) => sample.ttft), className: "text-(--dim)/45" },
+            { values: samples.map((sample) => sample.requests), className: "text-(--fg)/70" },
+          ]}
         />
       </div>
     </div>
   );
 }
 
+function TrendPanel({
+  label,
+  meta,
+  lines,
+  empty,
+}: {
+  label: string;
+  meta: string;
+  lines: Array<{ values: number[]; className: string }>;
+  empty: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-(--dim)/75">
+          {label}
+        </span>
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-(--dim)/45">
+          {meta}
+        </span>
+      </div>
+      <div className="h-28">
+        {empty ? (
+          <div className="flex h-full items-center border-t border-(--border)/25 font-mono text-[11px] text-(--dim)/55">
+            waiting for live samples…
+          </div>
+        ) : (
+          <Sparkline lines={lines} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Sparkline({ lines }: { lines: Array<{ values: number[]; className: string }> }) {
+  const paths = useMemo(() => {
+    const all = lines.flatMap((line) => line.values).filter((value) => Number.isFinite(value));
+    const max = Math.max(1, ...all);
+    return lines.map((line) => ({ ...line, points: toPolyline(line.values, max) }));
+  }, [lines]);
+
+  return (
+    <svg
+      className="h-full w-full overflow-visible text-(--border)"
+      viewBox="0 0 320 96"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      <path
+        d="M0 16H320 M0 48H320 M0 80H320"
+        stroke="currentColor"
+        strokeOpacity="0.42"
+        strokeWidth="0.6"
+        vectorEffect="non-scaling-stroke"
+      />
+      <path
+        d="M0 95.5H320"
+        stroke="currentColor"
+        strokeOpacity="0.75"
+        strokeWidth="0.7"
+        vectorEffect="non-scaling-stroke"
+      />
+      {paths.map((line, index) => (
+        <polyline
+          key={index}
+          points={line.points}
+          fill="none"
+          className={line.className}
+          stroke="currentColor"
+          strokeWidth={index === paths.length - 1 ? 1.6 : 1.1}
+          strokeLinecap="square"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  );
+}
+
+function toPolyline(values: number[], max: number): string {
+  const padded = values.length >= 2 ? values : [0, ...values];
+  const width = 320;
+  const height = 92;
+  const last = Math.max(1, padded.length - 1);
+  return padded
+    .map((value, index) => {
+      const x = (index / last) * width;
+      const y = 94 - (Math.max(0, value) / max) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function finitePositive(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function HeroStat({
+  label,
+  value,
+  unit,
+  detail,
+}: {
+  label: string;
+  value: string | null;
+  unit: string;
+  detail?: string;
+}) {
+  const idle = value == null;
+  return (
+    <div className="min-w-0 border-t border-(--border)/40 pt-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-(--dim)">
+          {label}
+        </span>
+        {detail ? (
+          <span className="font-mono text-[10.5px] tabular-nums text-(--dim)">{detail}</span>
+        ) : null}
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-2">
+        <span
+          className={`font-mono text-[34px] font-medium leading-none tabular-nums ${
+            idle ? "text-(--dim)/60" : "text-(--fg)"
+          }`}
+        >
+          {idle ? "—" : value}
+        </span>
+        {!idle ? <span className="font-mono text-[11px] text-(--dim)">{unit}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function Pair({ value, unit }: { value: string | null; unit: string }) {
+  if (value == null) {
+    return <span className="text-(--dim)/55">—</span>;
+  }
+  return (
+    <>
+      <span className="text-(--fg)/85">{value}</span>
+      {unit ? <span className="text-(--dim)/65">{unit}</span> : null}
+    </>
+  );
+}
+
+function Inline({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="text-[9.5px] font-medium uppercase tracking-[0.14em] text-(--dim)/70">
+        {label}
+      </span>
+      <span className="inline-flex items-baseline gap-1">{children}</span>
+    </span>
+  );
+}
+
 function StatusDot({ running }: { running: boolean }) {
-  return <span className={`h-2 w-2 shrink-0 ${running ? "bg-(--fg)" : "bg-(--dim)/55"}`} />;
+  return (
+    <span
+      className={`relative inline-flex h-1.5 w-1.5 shrink-0 rounded-full ${
+        running ? "bg-emerald-400" : "bg-(--dim)/55"
+      }`}
+    >
+      {running && <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/60" />}
+    </span>
+  );
 }
 
 function Tag({ tone, children }: { tone?: "err"; children: React.ReactNode }) {
-  const cls = tone === "err" ? "border-(--err) text-(--err)" : "border-(--border) text-(--dim)";
+  const cls =
+    tone === "err" ? "border-(--err)/60 text-(--err)" : "border-(--border)/70 text-(--dim)";
   return (
     <span
-      className={`border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] ${cls}`}
+      className={`border px-1.5 py-[1px] font-mono text-[9px] uppercase tracking-[0.14em] ${cls}`}
     >
       {children}
     </span>
@@ -201,41 +471,14 @@ function ActionBtn({
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`h-7 border px-2.5 font-mono text-[10px] uppercase tracking-[0.1em] transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
+      className={`h-7 rounded-[3px] border px-2.5 font-mono text-[10px] uppercase tracking-[0.12em] transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${
         danger
           ? "border-(--err)/40 text-(--err) hover:bg-(--err)/10"
-          : "border-(--border) text-(--dim) hover:bg-(--fg)/5 hover:text-(--fg)"
+          : "border-(--border)/70 text-(--dim) hover:border-(--border) hover:bg-(--fg)/5 hover:text-(--fg)"
       }`}
     >
       {label}
     </button>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  unit,
-  detail,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  detail?: string;
-}) {
-  return (
-    <div className="px-3 py-3">
-      <div className="text-[10px] font-medium uppercase tracking-[0.11em] text-(--dim)">
-        {label}
-      </div>
-      <div className="mt-1 font-mono text-lg font-semibold tabular-nums leading-none text-(--fg)">
-        {value}
-        {unit && <span className="ml-1 text-[10px] font-normal text-(--dim)">{unit}</span>}
-      </div>
-      {detail && (
-        <div className="mt-1 font-mono text-[10px] tabular-nums text-(--dim)">{detail}</div>
-      )}
-    </div>
   );
 }
 
@@ -285,12 +528,12 @@ function ModelsDropdown({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="h-7 border border-(--border) px-2.5 font-mono text-[10px] uppercase tracking-[0.1em] text-(--fg) hover:bg-(--fg)/5"
+        className="h-7 rounded-[3px] border border-(--border)/70 px-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-(--fg) hover:border-(--border) hover:bg-(--fg)/5"
       >
         Models ▾
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-[22rem] border border-(--border) bg-(--surface) shadow-lg">
+        <div className="absolute right-0 z-30 mt-1 w-[22rem] rounded-[4px] border border-(--border) bg-(--surface) shadow-lg">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] border-b border-(--border)">
             <input
               autoFocus
@@ -340,7 +583,7 @@ function ModelsDropdown({
                   <span className="flex-1 truncate font-mono text-xs text-(--fg)" title={r.name}>
                     {r.name}
                   </span>
-                  {running && <span className="h-1.5 w-1.5 bg-(--fg)" />}
+                  {running && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
                   <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-(--dim)">
                     tp{r.tp || r.tensor_parallel_size}
                   </span>
