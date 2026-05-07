@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import hljs from "highlight.js";
 import { useAppStore } from "@/store";
+import { AssistantMarkdown } from "./assistant-markdown";
 
 type FsEntry = {
   name: string;
@@ -37,22 +38,54 @@ type Props = {
   cwd: string | null;
 };
 
-
-
 const EXT_TO_LANG: Record<string, string> = {
-  js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-  py: "python", rb: "ruby", rs: "rust", go: "go", java: "java",
-  c: "c", cpp: "cpp", h: "c", hpp: "cpp",
-  cs: "csharp", swift: "swift", kt: "kotlin", kts: "kotlin",
-  html: "html", htm: "html", svg: "xml", xml: "xml", xsl: "xml",
-  css: "css", scss: "scss", sass: "scss", less: "less",
-  json: "json", yaml: "yaml", yml: "yaml", toml: "ini",
-  sh: "bash", bash: "bash", zsh: "bash", fish: "shell",
-  sql: "sql", graphql: "graphql", gql: "graphql",
-  md: "markdown", mdx: "markdown",
-  dockerfile: "dockerfile", makefile: "makefile",
-  lua: "lua", r: "r", dart: "dart", zig: "zig",
-  vue: "html", svelte: "html",
+  js: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  py: "python",
+  rb: "ruby",
+  rs: "rust",
+  go: "go",
+  java: "java",
+  c: "c",
+  cpp: "cpp",
+  h: "c",
+  hpp: "cpp",
+  cs: "csharp",
+  swift: "swift",
+  kt: "kotlin",
+  kts: "kotlin",
+  html: "html",
+  htm: "html",
+  svg: "xml",
+  xml: "xml",
+  xsl: "xml",
+  css: "css",
+  scss: "scss",
+  sass: "scss",
+  less: "less",
+  json: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  toml: "ini",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  fish: "shell",
+  sql: "sql",
+  graphql: "graphql",
+  gql: "graphql",
+  md: "markdown",
+  mdx: "markdown",
+  dockerfile: "dockerfile",
+  makefile: "makefile",
+  lua: "lua",
+  r: "r",
+  dart: "dart",
+  zig: "zig",
+  vue: "html",
+  svelte: "html",
 };
 
 function languageForPath(path: string): string | undefined {
@@ -103,10 +136,9 @@ function TreeFileList({
   searchQuery,
   openFile,
   onOpen,
-  cwd,
+  onToggleDir,
   depth,
   expandedDirs,
-  onToggleDir,
   dirChildren,
   dirLoading,
 }: {
@@ -114,10 +146,9 @@ function TreeFileList({
   searchQuery: string;
   openFile: string | null;
   onOpen: (entry: FsEntry) => void;
-  cwd: string;
+  onToggleDir: (rel: string) => void;
   depth: number;
   expandedDirs: Set<string>;
-  onToggleDir: (rel: string) => void;
   dirChildren: Map<string, FsEntry[]>;
   dirLoading: Set<string>;
 }) {
@@ -127,68 +158,83 @@ function TreeFileList({
     return entries.filter((e) => e.name.toLowerCase().includes(q));
   }, [entries, searchQuery]);
 
-  const items: FsEntry[] = [];
-  for (const entry of filtered) {
-    items.push(entry);
-    if (entry.kind === "directory" && expandedDirs.has(entry.rel)) {
-      const children = dirChildren.get(entry.rel);
-      if (children) {
-        for (const child of children) {
-          items.push(child);
-        }
-      }
-    }
-  }
-
   return (
     <>
-      {items.map((entry) => {
+      {filtered.map((entry) => {
         const isDir = entry.kind === "directory";
         const isExpanded = expandedDirs.has(entry.rel);
         const isLoading = dirLoading.has(entry.rel);
         const indent = depth * 12;
         const isActive = openFile === entry.rel;
+        const children = isDir && isExpanded ? dirChildren.get(entry.rel) : undefined;
 
         return (
-          <button
-            key={entry.path}
-            type="button"
-            onClick={() => onOpen(entry)}
-            title={entry.rel}
-            className={`flex w-full items-center gap-1 py-0.5 text-left text-[11px] hover:bg-(--surface) ${
-              isActive ? "bg-(--surface) text-(--fg)" : "text-(--dim)"
-            }`}
-            style={{ paddingLeft: `${8 + indent}px`, paddingRight: "8px" }}
-          >
-            {isDir ? (
-              <span className="shrink-0 w-3 h-3 flex items-center justify-center">
-                {isLoading ? (
-                  <span className="text-[8px] text-(--dim)">…</span>
-                ) : isExpanded ? (
-                  <ChevronDown className="h-3 w-3" />
+          <div key={entry.path}>
+            <div
+              className={`flex w-full items-center gap-1 py-0.5 text-left text-[11px] hover:bg-(--surface) ${
+                isActive ? "bg-(--surface) text-(--fg)" : "text-(--dim)"
+              }`}
+              style={{ paddingLeft: `${8 + indent}px`, paddingRight: "8px" }}
+            >
+              {isDir ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleDir(entry.rel);
+                  }}
+                  className="flex h-3 w-3 shrink-0 items-center justify-center"
+                  aria-label={isExpanded ? `Collapse ${entry.name}` : `Expand ${entry.name}`}
+                  title={isExpanded ? "Collapse" : "Expand"}
+                >
+                  {isLoading ? (
+                    <span className="text-[8px] text-(--dim)">…</span>
+                  ) : isExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                </button>
+              ) : (
+                <span className="w-3 shrink-0" />
+              )}
+              <button
+                type="button"
+                onClick={() => onOpen(entry)}
+                title={entry.rel}
+                className="flex min-w-0 flex-1 items-center gap-1 text-left"
+              >
+                {isDir ? (
+                  <Folder className="h-3 w-3 shrink-0 text-(--accent)" />
                 ) : (
-                  <ChevronRight className="h-3 w-3" />
+                  <File className="h-3 w-3 shrink-0" />
                 )}
-              </span>
-            ) : (
-              <span className="shrink-0 w-3" />
-            )}
-            {isDir ? (
-              <Folder className={`h-3 w-3 shrink-0 ${isActive ? "text-(--accent)" : "text-(--accent)"}`} />
-            ) : (
-              <File className="h-3 w-3 shrink-0" />
-            )}
-            <span className="flex-1 truncate">{entry.name}</span>
-            {!isDir && entry.size != null && entry.size > 0 && (
-              <span className="shrink-0 text-[9px] text-(--dim)">
-                {entry.size < 1024
-                  ? `${entry.size}B`
-                  : entry.size < 1024 * 1024
-                    ? `${(entry.size / 1024).toFixed(0)}K`
-                    : `${(entry.size / (1024 * 1024)).toFixed(1)}M`}
-              </span>
-            )}
-          </button>
+                <span className="flex-1 truncate">{entry.name}</span>
+                {!isDir && entry.size != null && entry.size > 0 ? (
+                  <span className="shrink-0 text-[9px] text-(--dim)">
+                    {entry.size < 1024
+                      ? `${entry.size}B`
+                      : entry.size < 1024 * 1024
+                        ? `${(entry.size / 1024).toFixed(0)}K`
+                        : `${(entry.size / (1024 * 1024)).toFixed(1)}M`}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+            {children ? (
+              <TreeFileList
+                entries={children}
+                searchQuery={searchQuery}
+                openFile={openFile}
+                onOpen={onOpen}
+                onToggleDir={onToggleDir}
+                depth={depth + 1}
+                expandedDirs={expandedDirs}
+                dirChildren={dirChildren}
+                dirLoading={dirLoading}
+              />
+            ) : null}
+          </div>
         );
       })}
     </>
@@ -218,6 +264,20 @@ export function FilesystemPanel({ cwd }: Props) {
   const setFontSize = useAppStore((s) => s.setFileViewerFontSize);
   const lastOpenFileByProject = useAppStore((s) => s.lastOpenFileByProject);
   const setLastOpenFileByProject = useAppStore((s) => s.setLastOpenFileByProject);
+  const cwdRef = useRef(cwd);
+
+  useEffect(() => {
+    cwdRef.current = cwd;
+  }, [cwd]);
+
+  useEffect(() => {
+    setRelPath("");
+    setOpenFile(null);
+    setSearchQuery("");
+    setExpandedDirs(new Set());
+    setDirChildren(new Map());
+    setDirLoading(new Set());
+  }, [cwd]);
 
   // Load directory whenever the cwd or relPath changes.
   useEffect(() => {
@@ -238,7 +298,9 @@ export function FilesystemPanel({ cwd }: Props) {
         if (!cancelled) setEntries([]);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cwd, relPath]);
 
   // Restore the last-opened file for this project.
@@ -292,24 +354,30 @@ export function FilesystemPanel({ cwd }: Props) {
         if (!cancelled) setLoadingFile(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cwd, openFile]);
 
   // Fetch children of a directory on demand.
   const fetchDirChildren = useCallback(
     async (dirRel: string) => {
-      if (!cwd) return;
+      const requestCwd = cwd;
+      if (!requestCwd) return;
       setDirLoading((prev) => new Set(prev).add(dirRel));
       try {
         const response = await fetch(
-          `/api/agent/fs?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(dirRel)}`,
+          `/api/agent/fs?cwd=${encodeURIComponent(requestCwd)}&path=${encodeURIComponent(dirRel)}`,
           { cache: "no-store" },
         );
         const payload = (await response.json()) as { entries?: FsEntry[]; error?: string };
+        if (cwdRef.current !== requestCwd) return;
         setDirChildren((prev) => new Map(prev).set(dirRel, payload.entries ?? []));
       } catch {
+        if (cwdRef.current !== requestCwd) return;
         setDirChildren((prev) => new Map(prev).set(dirRel, []));
       } finally {
+        if (cwdRef.current !== requestCwd) return;
         setDirLoading((prev) => {
           const next = new Set(prev);
           next.delete(dirRel);
@@ -323,26 +391,31 @@ export function FilesystemPanel({ cwd }: Props) {
   const openEntry = useCallback(
     (entry: FsEntry) => {
       if (entry.kind === "directory") {
-        setExpandedDirs((prev) => {
-          const next = new Set(prev);
-          if (next.has(entry.rel)) {
-            next.delete(entry.rel);
-          } else {
-            next.add(entry.rel);
-            if (!dirChildren.has(entry.rel)) {
-              fetchDirChildren(entry.rel);
-            }
-          }
-          return next;
-        });
-        // Also navigate into the directory (keep current behavior)
         setRelPath(entry.rel);
       } else {
         setOpenFile(entry.rel);
         if (cwd) setLastOpenFileByProject(cwd, entry.rel);
       }
     },
-    [cwd, dirChildren, fetchDirChildren],
+    [cwd, setLastOpenFileByProject],
+  );
+
+  const toggleDir = useCallback(
+    (rel: string) => {
+      setExpandedDirs((prev) => {
+        const next = new Set(prev);
+        if (next.has(rel)) {
+          next.delete(rel);
+        } else {
+          next.add(rel);
+          if (!dirChildren.has(rel)) {
+            void fetchDirChildren(rel);
+          }
+        }
+        return next;
+      });
+    },
+    [dirChildren, fetchDirChildren],
   );
 
   const goUp = useCallback(() => {
@@ -445,20 +518,9 @@ export function FilesystemPanel({ cwd }: Props) {
               searchQuery={searchQuery}
               openFile={openFile}
               onOpen={openEntry}
-              cwd={cwd}
+              onToggleDir={toggleDir}
               depth={0}
               expandedDirs={expandedDirs}
-              onToggleDir={(rel) => {
-                setExpandedDirs((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(rel)) next.delete(rel);
-                  else {
-                    next.add(rel);
-                    if (!dirChildren.has(rel)) fetchDirChildren(rel);
-                  }
-                  return next;
-                });
-              }}
               dirChildren={dirChildren}
               dirLoading={dirLoading}
             />
@@ -592,9 +654,7 @@ function Breadcrumb({
       >
         /
       </button>
-      {parts.length > 0 && (
-        <ChevronRight className="h-3 w-3 shrink-0 text-(--dim)" />
-      )}
+      {parts.length > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-(--dim)" />}
       {parts.map((part, i) => (
         <span key={i} className="flex shrink-0 items-center gap-0.5">
           <span className="truncate font-mono text-[10px] text-(--fg)">{part}</span>
@@ -620,7 +680,7 @@ function RenderedPreview({ content, kind }: { content: string; kind: "html" | "j
   if (kind === "md") {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto bg-(--bg) p-4 text-(--fg) text-sm leading-6">
-        <article className="whitespace-pre-wrap break-words">{content}</article>
+        <AssistantMarkdown text={content} />
       </div>
     );
   }
@@ -706,11 +766,9 @@ function FileViewer({
             <pre
               className="min-w-0 flex-1 whitespace-pre font-mono text-(--fg)"
               style={{ fontSize, lineHeight: `${lineHeight}px` }}
-              {...(html
-                ? { dangerouslySetInnerHTML: { __html: html || " " } }
-                : undefined)}
+              {...(html ? { dangerouslySetInnerHTML: { __html: html || " " } } : undefined)}
             >
-              {!html ? (text || "\u00a0") : undefined}
+              {!html ? text || "\u00a0" : undefined}
             </pre>
             {lineComments.length > 0 ? (
               <span className="ml-1 inline-flex shrink-0 items-center gap-0.5 rounded border border-(--border) px-1 font-mono text-[9px] text-(--dim)">
@@ -780,7 +838,17 @@ function FileViewer({
         </div>
       );
     },
-    [lines, highlightedLines, commentsByLine, composerLine, composerValue, onRemoveComment, submit, fontSize, lineHeight],
+    [
+      lines,
+      highlightedLines,
+      commentsByLine,
+      composerLine,
+      composerValue,
+      onRemoveComment,
+      submit,
+      fontSize,
+      lineHeight,
+    ],
   );
 
   // Plain map for short files; virtualized for long ones.

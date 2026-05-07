@@ -13,6 +13,14 @@ import {
 } from "@/components/icons";
 import { safeJson } from "@/lib/agent/safe-json";
 import { AssistantMarkdown } from "./assistant-markdown";
+import {
+  attachmentPrompt,
+  createAttachment,
+  dataTransferHasFiles,
+  filesFromDataTransfer,
+  formatFileSize,
+  type ChatAttachment,
+} from "./chat-attachments";
 
 // Imperative handle exposed by ChatPane so the workspace can replay a past
 // pi session into the focused pane without going through useEffect-driven
@@ -89,16 +97,6 @@ export type SessionTab = {
   queue?: QueuedMessage[];
 };
 
-type ChatAttachment = {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  path?: string;
-  mode: "text" | "data-url" | "metadata";
-  content: string;
-};
-
 type Props = {
   paneId: string;
   // The unique runtime session id used as the PiRpcSession key on the server.
@@ -161,154 +159,6 @@ function nowLabel() {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(
     new Date(),
   );
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function extensionFromMimeType(type: string): string {
-  if (!type) return "bin";
-  const normalized = type.toLowerCase().split(";")[0]?.trim() ?? "";
-  const known: Record<string, string> = {
-    "application/json": "json",
-    "application/pdf": "pdf",
-    "application/zip": "zip",
-    "image/jpeg": "jpg",
-    "image/svg+xml": "svg",
-    "text/csv": "csv",
-    "text/html": "html",
-    "text/markdown": "md",
-    "text/plain": "txt",
-    "video/quicktime": "mov",
-  };
-  if (known[normalized]) return known[normalized];
-  const [, subtype] = normalized.split("/");
-  const sanitized = subtype?.replace(/[^a-z0-9]+/g, "").replace(/^x/, "");
-  return sanitized || "bin";
-}
-
-function fileDisplayName(file: File): string {
-  const name = file.name.trim();
-  if (name) return name;
-  return `pasted-${Date.now().toString(36)}-${randomIdSegment(4)}.${extensionFromMimeType(file.type)}`;
-}
-
-function isTextLike(file: File, name = file.name) {
-  if (file.type.startsWith("text/")) return true;
-  return /\.(md|markdown|txt|json|csv|tsv|log|yaml|yml|xml|html|css|js|jsx|ts|tsx|py|sh|sql)$/i.test(
-    name,
-  );
-}
-
-function getDesktopFilePath(file: File): string | null {
-  if (typeof window === "undefined") return null;
-  const bridge = (window as unknown as { vllmStudioDesktop?: { getPathForFile?: unknown } })
-    .vllmStudioDesktop;
-  const getPathForFile = bridge?.getPathForFile;
-  if (typeof getPathForFile !== "function") return null;
-  try {
-    const path = getPathForFile(file);
-    return typeof path === "string" && path.trim() ? path : null;
-  } catch {
-    return null;
-  }
-}
-
-function dataTransferHasFiles(dataTransfer: DataTransfer | null): boolean {
-  if (!dataTransfer) return false;
-  return Array.from(dataTransfer.types ?? []).includes("Files");
-}
-
-function filesFromDataTransfer(dataTransfer: DataTransfer | null): File[] {
-  if (!dataTransfer) return [];
-  const files: File[] = [];
-  const seen = new Set<string>();
-  const push = (file: File | null) => {
-    if (!file) return;
-    const key = `${file.name}:${file.type}:${file.size}:${file.lastModified}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    files.push(file);
-  };
-  Array.from(dataTransfer.files ?? []).forEach(push);
-  Array.from(dataTransfer.items ?? []).forEach((item) => {
-    if (item.kind === "file") push(item.getAsFile());
-  });
-  return files;
-}
-
-function readFileAsText(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsText(file);
-  });
-}
-
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function createAttachment(file: File): Promise<ChatAttachment> {
-  const id = newId("file");
-  const name = fileDisplayName(file);
-  const type = file.type || "application/octet-stream";
-  const path = getDesktopFilePath(file) ?? undefined;
-  if (isTextLike(file, name) && file.size <= 350_000) {
-    return {
-      id,
-      name,
-      type: file.type || "text/plain",
-      size: file.size,
-      path,
-      mode: "text",
-      content: await readFileAsText(file),
-    };
-  }
-  if (file.size <= 1_500_000) {
-    return {
-      id,
-      name,
-      type,
-      size: file.size,
-      path,
-      mode: "data-url",
-      content: await readFileAsDataUrl(file),
-    };
-  }
-  return {
-    id,
-    name,
-    type,
-    size: file.size,
-    path,
-    mode: "metadata",
-    content: path
-      ? `File is too large to inline; it is available on disk at ${path}.`
-      : "File is too large to inline; only metadata is attached.",
-  };
-}
-
-function attachmentPrompt(attachments: ChatAttachment[]) {
-  if (attachments.length === 0) return "";
-  return attachments
-    .map((file, index) => {
-      const pathInfo = file.path ? `\nLocal path: ${file.path}` : "";
-      const header = `Attachment ${index + 1}: ${file.name} (${file.type}, ${formatFileSize(file.size)})${pathInfo}`;
-      if (file.mode === "text") return `${header}\n\`\`\`\n${file.content}\n\`\`\``;
-      if (file.mode === "data-url") return `${header}\nData URL:\n${file.content}`;
-      return `${header}\n${file.content}`;
-    })
-    .join("\n\n");
 }
 
 function extractToolText(value: unknown): string {
@@ -1013,7 +863,12 @@ export function ChatPane({
   // stream — pi delivers the queued message and continues emitting events on
   // the original prompt's stream. Returns true on success.
   const sendControlMessage = useCallback(
-    async (mode: "steer" | "follow_up", text: string, runtime: string, piSessionId?: string | null): Promise<boolean> => {
+    async (
+      mode: "steer" | "follow_up",
+      text: string,
+      runtime: string,
+      piSessionId?: string | null,
+    ): Promise<boolean> => {
       if (!text.trim() || !modelId) return false;
       try {
         const response = await fetch("/api/agent/turn", {
@@ -1427,16 +1282,16 @@ export function ChatPane({
             element.scrollHeight - element.scrollTop - element.clientHeight;
           stickToBottomRef.current = distanceFromBottom <= 80;
         }}
-        className={`min-h-0 flex-1 overflow-y-auto px-6 py-8 ${showEmptyPrompt ? "flex" : ""}`}
+        className={`min-h-0 flex-1 overflow-y-auto px-6 py-10 ${showEmptyPrompt ? "flex" : ""}`}
       >
-        <div className={`mx-auto w-full max-w-3xl ${showEmptyPrompt ? "flex flex-1" : ""}`}>
+        <div className={`mx-auto w-full max-w-[720px] ${showEmptyPrompt ? "flex flex-1" : ""}`}>
           {showEmptyPrompt ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-              <h1 className="text-xl font-semibold tracking-tight text-(--fg)">
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 -translate-y-12 text-center">
+              <h1 className="text-[26px] font-semibold tracking-[-0.04em] text-(--fg)">
                 What should we work on{projectName ? ` in ${projectName}` : ""}?
               </h1>
-              <p className="text-xs text-(--dim)">
-                Ask the agent to edit, inspect, or run something.
+              <p className="text-[12.5px] text-(--dim)">
+                Ask the agent to edit, inspect, or run something. Tab to queue · paste/drop files.
               </p>
             </div>
           ) : (
@@ -1462,8 +1317,8 @@ export function ChatPane({
           onDragOver={handleComposerDragOver}
           onDragLeave={handleComposerDragLeave}
           onDrop={handleComposerDrop}
-          className={`mx-auto max-w-3xl overflow-hidden rounded-xl border bg-(--surface) ${
-            composerDragActive ? "border-(--accent)" : "border-(--border)/50"
+          className={`mx-auto max-w-[var(--composer-w)] overflow-hidden rounded-[var(--composer-radius)] border border-(--border) bg-(--composer) shadow-[var(--composer-shadow)] transition-shadow ${
+            composerDragActive ? "ring-1 ring-(--accent)/60" : ""
           }`}
         >
           {composerDragActive ? (
@@ -1659,7 +1514,7 @@ export function ChatPane({
               </button>
             )}
           </div>
-          <div className="flex min-h-9 items-center gap-2 border-t border-(--border)/50 bg-(--bg)/45 px-2 py-1.5 text-xs">
+          <div className="flex min-h-9 items-center gap-2 border-t border-(--border) bg-(--composer-footer) px-3 py-1.5 text-xs">
             {projectSelector ? (
               projectSelector
             ) : cwd ? (

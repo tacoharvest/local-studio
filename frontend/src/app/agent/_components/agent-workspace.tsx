@@ -13,7 +13,10 @@ import {
   SESSIONS_CHANGED_EVENT,
   triggerAddProjectFlow,
 } from "@/components/projects-nav-section";
-import { sanitizeEmbeddedBrowserUrl } from "@/lib/sanitize-embedded-browser-url";
+import {
+  sanitizeLocalFileUrl,
+  sanitizePublicBrowserUrl,
+} from "@/lib/sanitize-embedded-browser-url";
 import { ChevronDownIcon, CloseIcon, ComputerIcon, PlusIcon } from "@/components/icons";
 import { safeJson } from "@/lib/agent/safe-json";
 import { AgentBrowser, type AgentBrowserHandle, type WebviewElement } from "./agent-browser";
@@ -125,7 +128,7 @@ function expandHomeFilePath(cwd: string, value: string): string | null {
   return `${homeMatch[1]}${value.slice(1)}`;
 }
 const COMPUTER_FILES_OPEN_KEY = "vllm-studio.agent.computer.filesOpen";
-const COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY = "vllm-studio.agent.computer.defaultClosedMigrated";
+const COMPUTER_DEFAULT_CLOSED_STORAGE_ID = "vllm-studio.agent.computer.defaultCollapsedV2";
 const PANE_LAYOUT_KEY = "vllm-studio.agent.paneLayout";
 
 type ComputerTab = "browser" | "files" | "diff";
@@ -168,7 +171,7 @@ export function AgentWorkspace() {
   const [agentCwd, setAgentCwd] = useState(DEFAULT_AGENT_CWD);
   const [error, setError] = useState("");
   const [loadingModels, setLoadingModels] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [browserUrl, setBrowserUrl] = useState("https://www.google.com");
   const [browserInput, setBrowserInput] = useState("https://www.google.com");
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
@@ -178,7 +181,6 @@ export function AgentWorkspace() {
   const [activeComputerTab, setActiveComputerTab] = useState<ComputerTab>("browser");
   const [computerWidth, setComputerWidth] = useState(DEFAULT_COMPUTER_WIDTH);
   const [gitSummaries, setGitSummaries] = useState<Map<string, GitSummary>>(new Map());
-  const realtime = useRealtimeStatus();
 
   // Pane state: a tree-shaped Layout where each leaf is identified by a
   // PaneId and points into panesById, which holds tabs + the per-pane
@@ -277,8 +279,8 @@ export function AgentWorkspace() {
         try {
           switch (verb) {
             case "navigate": {
-              const url = sanitizeEmbeddedBrowserUrl(String(payload.url || ""));
-              if (!url) return { ok: false, error: "valid http(s) url required" };
+              const url = sanitizePublicBrowserUrl(String(payload.url || ""));
+              if (!url) return { ok: false, error: "valid public http(s) url required" };
               await withBrowserTimeout(webview.loadURL(url), "Browser navigation");
               setBrowserUrl(url);
               setBrowserInput(url);
@@ -380,8 +382,8 @@ export function AgentWorkspace() {
       if (!iframe) return { ok: false, error: "Browser panel not mounted" };
       switch (verb) {
         case "navigate": {
-          const url = sanitizeEmbeddedBrowserUrl(String(payload.url || ""));
-          if (!url) return { ok: false, error: "valid http(s) url required" };
+          const url = sanitizePublicBrowserUrl(String(payload.url || ""));
+          if (!url) return { ok: false, error: "valid public http(s) url required" };
           iframe.src = url;
           setBrowserUrl(url);
           setBrowserInput(url);
@@ -450,15 +452,15 @@ export function AgentWorkspace() {
     }
     const browserOn = window.localStorage.getItem(BROWSER_TOOL_KEY);
     if (browserOn === "1") setBrowserToolEnabled(true);
-    const computerMigrated = window.localStorage.getItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY);
+    const computerMigrated = window.localStorage.getItem(COMPUTER_DEFAULT_CLOSED_STORAGE_ID);
     if (!computerMigrated) {
-      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "1");
+      window.localStorage.setItem(COMPUTER_BROWSER_OPEN_KEY, "0");
       window.localStorage.setItem(COMPUTER_FILES_OPEN_KEY, "0");
-      window.localStorage.setItem(COMPUTER_DEFAULT_CLOSED_MIGRATION_KEY, "1");
+      window.localStorage.setItem(COMPUTER_DEFAULT_CLOSED_STORAGE_ID, "1");
     }
     const filesOpenStored = window.localStorage.getItem(COMPUTER_FILES_OPEN_KEY);
     setActiveComputerTab(filesOpenStored === "1" ? "files" : "browser");
-    setRightPanelOpen(window.localStorage.getItem(COMPUTER_BROWSER_OPEN_KEY) !== "0");
+    setRightPanelOpen(window.localStorage.getItem(COMPUTER_BROWSER_OPEN_KEY) === "1");
     const storedComputerWidth = Number(window.localStorage.getItem(COMPUTER_WIDTH_KEY));
     if (Number.isFinite(storedComputerWidth)) {
       setComputerWidth(clampComputerWidth(storedComputerWidth));
@@ -707,11 +709,7 @@ export function AgentWorkspace() {
     const value = raw.trim();
     if (!value) return "https://www.google.com";
     if (/^file:\/\//i.test(value)) {
-      try {
-        return new URL(value).toString();
-      } catch {
-        return value;
-      }
+      return sanitizeLocalFileUrl(value) ?? "";
     }
     if (value.startsWith("~/") && agentCwd) {
       const expanded = expandHomeFilePath(agentCwd, value);
@@ -867,12 +865,13 @@ export function AgentWorkspace() {
             piSessionId: tab.piSessionId,
             title: tab.title,
             status: tab.status,
+            active: paneId === focusedPaneId && tab.id === pane.activeTabId,
             updatedAt: new Date().toISOString(),
           };
         }),
     );
     window.dispatchEvent(new CustomEvent(ACTIVE_AGENT_SESSIONS_EVENT, { detail: { sessions } }));
-  }, [activeProject, panesById, projects]);
+  }, [activeProject, focusedPaneId, panesById, projects]);
 
   const openSessionPayloadInPane = useCallback(
     (paneId: PaneId, payload: SessionDropPayload) => {
@@ -1164,8 +1163,14 @@ export function AgentWorkspace() {
                           </select>
                         ) : null
                       }
-                      gitBranch={(paneProject?.path ? gitSummaries.get(paneProject.path)?.branch : null) ?? paneProject?.branch ?? null}
-                      gitSummary={paneProject?.path ? gitSummaries.get(paneProject.path) ?? null : null}
+                      gitBranch={
+                        (paneProject?.path ? gitSummaries.get(paneProject.path)?.branch : null) ??
+                        paneProject?.branch ??
+                        null
+                      }
+                      gitSummary={
+                        paneProject?.path ? (gitSummaries.get(paneProject.path) ?? null) : null
+                      }
                       onInitGit={initGitForActiveProject}
                       modelSelector={
                         <ModelPicker
