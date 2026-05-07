@@ -448,7 +448,7 @@ function MetricColumn({
   detail?: string;
 }) {
   return (
-    <div className="min-w-0 border-r border-(--border)/40 pr-5 last:border-r-0">
+    <div className="min-w-0 border-r border-(--border)/40 pr-6 pl-7 first:pl-0 last:border-r-0">
       <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-(--dim)">
         {label}
       </div>
