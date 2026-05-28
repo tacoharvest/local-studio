@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { existsSync, statSync } from "node:fs";
 import { listProjectsFromStore } from "@/lib/agent/projects-store";
 import { listSessions, type SessionSummary } from "@/lib/agent/sessions-store";
+import { listArchivedSessionMetadata } from "@/lib/agent/session-metadata-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,15 +47,17 @@ export async function GET(request: NextRequest) {
   const archive = archiveOptions(request.nextUrl.searchParams);
   const projects = listProjectsFromStore();
   const aggregated: AggregatedSession[] = [];
+  const seenIds = new Set<string>();
   await Promise.all(
     projects.map(async (project) => {
       try {
         if (!existsSync(project.path) || !statSync(project.path).isDirectory()) return;
         const sessions = await listSessions(project.path, {
-          ...(since ? { since } : {}),
+          ...(since && !archive.archivedOnly ? { since } : {}),
           ...archive,
         });
         for (const summary of sessions) {
+          seenIds.add(summary.id);
           aggregated.push({
             ...summary,
             projectId: project.id,
@@ -67,6 +70,27 @@ export async function GET(request: NextRequest) {
       }
     }),
   );
+  if (archive.archivedOnly) {
+    for (const metadata of listArchivedSessionMetadata()) {
+      if (seenIds.has(metadata.id)) continue;
+      aggregated.push({
+        id: metadata.id,
+        filename: "",
+        cwd: metadata.cwd ?? "",
+        startedAt: metadata.sessionUpdatedAt ?? metadata.archivedAt ?? metadata.updatedAt ?? "",
+        updatedAt: metadata.sessionUpdatedAt ?? metadata.updatedAt ?? metadata.archivedAt ?? "",
+        modelId: null,
+        provider: null,
+        firstUserMessage: metadata.title,
+        turnCount: 0,
+        archived: true,
+        archivedAt: metadata.archivedAt,
+        projectId: metadata.projectId ?? "",
+        projectName: metadata.projectName ?? "Unknown project",
+        projectPath: metadata.cwd ?? "",
+      });
+    }
+  }
   aggregated.sort(
     (a, b) =>
       new Date(b.startedAt || b.updatedAt).getTime() -

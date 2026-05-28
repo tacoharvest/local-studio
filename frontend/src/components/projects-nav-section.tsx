@@ -162,11 +162,22 @@ export function consumeAgentSessionNavTitle(sessionId: string | null | undefined
     return undefined;
   }
 }
-async function setSessionArchive(sessionId: string, cwd: string, archived: boolean): Promise<void> {
+async function setSessionArchive(
+  sessionId: string,
+  project: ProjectEntry,
+  title: string,
+  archived: boolean,
+): Promise<void> {
   const response = await fetch(`/api/agent/sessions/${encodeURIComponent(sessionId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cwd, archived }),
+    body: JSON.stringify({
+      cwd: project.path,
+      archived,
+      projectId: project.id,
+      projectName: project.name,
+      title,
+    }),
   });
   const payload = await safeJson<{ error?: string }>(response);
   if (!response.ok) {
@@ -1103,7 +1114,7 @@ function SessionRow({
       href={`/agent?project=${encodeURIComponent(project.id)}&session=${encodeURIComponent(session.id)}`}
       onPatchPref={(patch) => patchSessionPref(session.id, patch)}
       onArchive={() => {
-        void setSessionArchive(session.id, project.path, true)
+        void setSessionArchive(session.id, project, label, true)
           .then(() => patchSessionPref(session.id, { hidden: undefined }))
           .catch((error) => {
             console.warn("[agent] failed to archive session", error);

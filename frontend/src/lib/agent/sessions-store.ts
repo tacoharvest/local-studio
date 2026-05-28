@@ -158,6 +158,14 @@ function applySessionMetadata(summary: SessionSummary): SessionSummary {
   return { ...summary, ...archiveState };
 }
 
+function summaryRelevantTime(summary: SessionSummary, archivedOnly: boolean): number {
+  const value = archivedOnly
+    ? summary.archivedAt || summary.updatedAt || summary.startedAt
+    : summary.updatedAt || summary.startedAt;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 export async function listSessions(
   cwd: string,
   options: ListSessionsOptions = {},
@@ -177,13 +185,21 @@ export async function listSessions(
           continue;
         }
         const filepath = path.join(dir, filename);
-        if (options.since && statSync(filepath).mtime < options.since) continue;
+        const stats = statSync(filepath);
+        if (options.since && !options.archivedOnly && stats.mtime < options.since) continue;
         const summary = await readSessionSummary(filepath, filename);
         if (!summary?.id) continue;
         if (wantedIds.size > 0 && !wantedIds.has(summary.id)) continue;
         const decorated = applySessionMetadata(summary);
         if (options.archivedOnly && !decorated.archived) continue;
         if (!options.archivedOnly && !options.includeArchived && decorated.archived) continue;
+        if (
+          options.since &&
+          options.archivedOnly &&
+          summaryRelevantTime(decorated, true) < options.since.getTime()
+        ) {
+          continue;
+        }
         const existing = summariesById.get(summary.id);
         if (!existing || decorated.updatedAt > existing.updatedAt) {
           summariesById.set(summary.id, decorated);

@@ -11,11 +11,14 @@ function encodeCwdForPi(cwd: string): string {
 }
 
 async function loadSessionModules() {
-  const [{ listSessions }, { setSessionArchived }] = await Promise.all([
+  const [
+    { listSessions },
+    { listArchivedSessionMetadata, setSessionArchived },
+  ] = await Promise.all([
     import("@/lib/agent/sessions-store"),
     import("@/lib/agent/session-metadata-store"),
   ]);
-  return { listSessions, setSessionArchived };
+  return { listArchivedSessionMetadata, listSessions, setSessionArchived };
 }
 
 test("archived durable agent sessions are hidden by default and restorable", async () => {
@@ -57,7 +60,8 @@ test("archived durable agent sessions are hidden by default and restorable", asy
     process.env.PI_CODING_AGENT_DIR = piAgentDir;
     process.env.VLLM_STUDIO_DATA_DIR = dataDir;
 
-    const { listSessions, setSessionArchived } = await loadSessionModules();
+    const { listArchivedSessionMetadata, listSessions, setSessionArchived } =
+      await loadSessionModules();
 
     const defaultSessions = await listSessions(cwd);
     assert.equal(defaultSessions.length, 1);
@@ -65,13 +69,26 @@ test("archived durable agent sessions are hidden by default and restorable", asy
     assert.equal(defaultSessions[0]?.archived, false);
     assert.equal(defaultSessions[0]?.archivedAt, null);
 
-    const archiveState = setSessionArchived(sessionId, true, archivedAt);
+    const archiveState = setSessionArchived(sessionId, true, archivedAt, {
+      cwd,
+      projectId: "project-archive",
+      projectName: "Archive Workspace",
+      sessionUpdatedAt: "2026-05-28T12:00:01.000Z",
+      title: "Keep archived chat sessions durable",
+    });
     assert.deepEqual(archiveState, {
       archived: true,
       archivedAt: archivedAt.toISOString(),
     });
 
     assert.deepEqual(await listSessions(cwd), []);
+    const archiveIndex = listArchivedSessionMetadata();
+    assert.equal(archiveIndex.length, 1);
+    assert.equal(archiveIndex[0]?.id, sessionId);
+    assert.equal(archiveIndex[0]?.cwd, cwd);
+    assert.equal(archiveIndex[0]?.title, "Keep archived chat sessions durable");
+    assert.equal(archiveIndex[0]?.projectId, "project-archive");
+    assert.equal(archiveIndex[0]?.projectName, "Archive Workspace");
 
     const archivedSessions = await listSessions(cwd, { archivedOnly: true });
     assert.equal(archivedSessions.length, 1);
@@ -88,7 +105,8 @@ test("archived durable agent sessions are hidden by default and restorable", asy
     assert.equal(restoredSessions[0]?.archived, false);
     assert.equal(restoredSessions[0]?.archivedAt, null);
   } finally {
-    if (previousPiAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    if (previousPiAgentDir === undefined)
+      delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = previousPiAgentDir;
     if (previousDataDir === undefined) delete process.env.VLLM_STUDIO_DATA_DIR;
     else process.env.VLLM_STUDIO_DATA_DIR = previousDataDir;

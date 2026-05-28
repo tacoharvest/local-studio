@@ -460,7 +460,7 @@ function ArchivedChatsSettings() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/agent/sessions/all?archived=1&since=365d", {
+      const response = await fetch("/api/agent/sessions/all?archived=1", {
         cache: "no-store",
       });
       const payload = (await response.json()) as { sessions?: Session[]; error?: string };
