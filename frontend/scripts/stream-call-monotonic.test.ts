@@ -165,3 +165,42 @@ test("reasoning variants remain visible in live snapshots and settled replay", (
     );
   }
 });
+
+test("preserved tool execution stays before a later closing summary", () => {
+  const ctx: SessionStreamContext = { liveAssistantIds: new Map() };
+  let session: Session = {
+    id: "s-order",
+    piSessionId: "pi-order",
+    title: "t",
+    messages: [{ id: "a1", role: "assistant", text: "", blocks: [], timestamp: "" }],
+    status: "running",
+    error: "",
+    input: "",
+    activeAssistantId: "a1",
+  };
+  const event = (value: Record<string, unknown>) => {
+    session = reduceSessionEvent(session, ctx, value);
+  };
+  event({ type: "message_start", message: { role: "assistant", content: [] } });
+  event({
+    type: "message_update",
+    message: { role: "assistant", content: [{ type: "text", text: "lead" }] },
+  });
+  event({ type: "tool_execution_start", toolCallId: "call-1", toolName: "bash" });
+  event({
+    type: "tool_execution_end",
+    toolCallId: "call-1",
+    isError: false,
+    result: { content: [{ type: "text", text: "done" }] },
+  });
+  event({ type: "message_start", message: { role: "assistant", content: [] } });
+  event({
+    type: "message_update",
+    message: { role: "assistant", content: [{ type: "text", text: "summary" }] },
+  });
+  const blocks = session.messages[0]?.blocks ?? [];
+  assert.deepEqual(
+    blocks.map((block) => (block.kind === "tool" ? block.id : block.text)),
+    ["lead", "call-1", "summary"],
+  );
+});

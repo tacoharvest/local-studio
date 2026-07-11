@@ -485,11 +485,70 @@ function preserveMissingToolBlocks(
   blocks: AssistantBlock[],
   existingBlocks: AssistantBlock[],
 ): AssistantBlock[] {
-  const ids = new Set(blocks.filter((block) => block.kind === "tool").map((block) => block.id));
+  const ids = new Set(blocks.map((block) => block.id));
   const missingTools = existingBlocks.filter(
     (block) => block.kind === "tool" && !ids.has(block.id),
   );
-  return missingTools.length ? [...blocks, ...missingTools] : blocks;
+  if (missingTools.length === 0) return blocks;
+
+  const next = blocks.slice();
+  const inserted = new Set<string>();
+  for (const tool of missingTools) {
+    const toolIndex = existingBlocks.findIndex((block) => block.id === tool.id);
+    let precedingId: string | null = null;
+    for (let index = toolIndex - 1; index >= 0; index -= 1) {
+      const candidate = existingBlocks[index];
+      if (candidate && (ids.has(candidate.id) || inserted.has(candidate.id))) {
+        precedingId = candidate.id;
+        break;
+      }
+    }
+    if (precedingId) {
+      const index = next.findIndex((block) => block.id === precedingId);
+      const anchor = existingBlocks.find((block) => block.id === precedingId);
+      const insertIndex = anchor ? splitAnchorBeforeTool(next, index, anchor, tool.id) : index;
+      next.splice(insertIndex + 1, 0, tool);
+      inserted.add(tool.id);
+      continue;
+    }
+    let followingId: string | null = null;
+    for (let index = toolIndex + 1; index < existingBlocks.length; index += 1) {
+      const candidate = existingBlocks[index];
+      if (candidate && ids.has(candidate.id)) {
+        followingId = candidate.id;
+        break;
+      }
+    }
+    if (followingId) {
+      const index = next.findIndex((block) => block.id === followingId);
+      next.splice(index, 0, tool);
+    } else {
+      next.unshift(tool);
+    }
+    inserted.add(tool.id);
+  }
+  return next;
+}
+
+function splitAnchorBeforeTool(
+  blocks: AssistantBlock[],
+  index: number,
+  existing: AssistantBlock,
+  toolId: string,
+): number {
+  const incoming = blocks[index];
+  if (!incoming || (incoming.kind !== "text" && incoming.kind !== "thinking")) return index;
+  if (existing.kind !== "text" && existing.kind !== "thinking") return index;
+  if (!existing.text || !incoming.text.startsWith(existing.text)) return index;
+  const suffix = incoming.text.slice(existing.text.length);
+  if (!suffix) return index;
+  blocks[index] = { ...incoming, kind: existing.kind, text: existing.text };
+  blocks.splice(index + 1, 0, {
+    kind: "text",
+    id: `${incoming.id}:continuation:${toolId}`,
+    text: suffix,
+  });
+  return index;
 }
 
 function nextStreamCalls(
