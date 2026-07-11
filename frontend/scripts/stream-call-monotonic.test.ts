@@ -6,6 +6,7 @@ import {
   type SessionStreamContext,
 } from "../src/features/agent/runtime/pi-event-applier";
 import type { Session } from "../src/features/agent/runtime/types";
+import { blocksFromMessageContent } from "../src/features/agent/messages/message-content";
 
 // Regression for reliability finding [13]: a message_update whose chosen content
 // snapshot momentarily LAGS the previous frame (assistantSnapshotContent flips
@@ -128,4 +129,39 @@ test("reasoning snapshots advance monotonically beside tool calls", () => {
     thinking?.kind === "thinking" ? thinking.text : "",
     "long reasoning that must remain visible",
   );
+});
+
+test("reasoning variants remain visible in live snapshots and settled replay", () => {
+  const variants = [
+    { type: "reasoning", text: "reasoning text" },
+    { type: "reasoning", reasoning_content: "reasoning content" },
+  ];
+  for (const variant of variants) {
+    const ctx: SessionStreamContext = { liveAssistantIds: new Map() };
+    let session: Session = {
+      id: "s-variant",
+      piSessionId: "pi-variant",
+      title: "t",
+      messages: [{ id: "a1", role: "assistant", text: "", blocks: [], timestamp: "" }],
+      status: "running",
+      error: "",
+      input: "",
+      activeAssistantId: "a1",
+    };
+    session = reduceSessionEvent(session, ctx, {
+      type: "message_update",
+      message: { role: "assistant", content: [variant] },
+    });
+    const liveThinking = session.messages[0]?.blocks?.find((block) => block.kind === "thinking");
+    assert.equal(
+      liveThinking?.kind === "thinking" ? liveThinking.text : "",
+      Object.values(variant)[1],
+    );
+    const replayBlocks = blocksFromMessageContent([variant]);
+    const replayThinking = replayBlocks.find((block) => block.kind === "thinking");
+    assert.equal(
+      replayThinking?.kind === "thinking" ? replayThinking.text : "",
+      Object.values(variant)[1],
+    );
+  }
 });

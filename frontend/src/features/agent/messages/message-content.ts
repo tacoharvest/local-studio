@@ -42,9 +42,7 @@ export function blockFromContentPart(
     return [{ kind: "thinking", id: newId("thinking"), text: part.thinking }];
   }
   if (part.type === "reasoning") {
-    const text = [part.reasoning, part.thinking, part.text].find(
-      (value): value is string => typeof value === "string",
-    );
+    const text = firstString(part.reasoning, part.reasoning_content, part.thinking, part.text);
     return text ? [{ kind: "thinking", id: newId("thinking"), text }] : [];
   }
   if (part.type !== "toolCall") return [];
@@ -143,7 +141,13 @@ type PiContentPart =
   | (TextContent & { reasoning_content?: string })
   | ThinkingContent
   | (Omit<ToolCall, "arguments"> & { arguments?: string | Record<string, unknown> })
-  | { type: "reasoning"; reasoning?: string; thinking?: string; text?: string };
+  | {
+      type: "reasoning";
+      reasoning?: string;
+      reasoning_content?: string;
+      thinking?: string;
+      text?: string;
+    };
 
 function partToBlocks(part: PiContentPart, callOrdinal: number, index: number): AssistantBlock[] {
   const idBase = `${callOrdinal}:${index}`;
@@ -171,7 +175,7 @@ function partToBlocks(part: PiContentPart, callOrdinal: number, index: number): 
     return text ? [{ kind: "thinking", id: `${idBase}:thinking`, text }] : [];
   }
   if (part.type === "reasoning") {
-    const text = part.reasoning || part.thinking || "";
+    const text = firstString(part.reasoning, part.reasoning_content, part.thinking, part.text);
     return text ? [{ kind: "thinking", id: `${idBase}:thinking`, text }] : [];
   }
   if (part.type === "text") {
@@ -230,6 +234,13 @@ const asRecordPart = (value: unknown): PiContentPart =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as PiContentPart)
     : { type: "text", text: "" };
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string") return value;
+  }
+  return "";
+}
 
 // ---------------------------------------------------------------------------
 // Tool-state preservation across a snapshot rebuild
