@@ -227,7 +227,13 @@ export function StatusMetricStrip({
         />
       ))}
       {compactMetrics.map((metric) => (
-        <MetricCell key={metric.label} label={metric.label} value={metric.value ?? "0"} />
+        <MetricCell
+          key={metric.label}
+          label={metric.label}
+          value={metric.value ?? "0"}
+          detail={metric.detail}
+          detailTitle={metric.detailTitle}
+        />
       ))}
     </dl>
   );

@@ -25,6 +25,8 @@ export type MetricColumnView = {
 export type CompactMetricView = {
   label: string;
   value: string | null;
+  detail?: string;
+  detailTitle?: string;
 };
 
 type PeakKind = "generation" | "prefill" | "ttft";
@@ -65,6 +67,8 @@ type StatusSectionViewInput = {
   inferencePort?: number;
   metrics: Metrics | null;
   platformKind?: RuntimePlatformKind | null;
+  systemCpu?: string | null;
+  systemMemoryGb?: number | null;
 };
 
 export function resolveStatusSectionView({
@@ -74,12 +78,14 @@ export function resolveStatusSectionView({
   inferencePort,
   metrics,
   platformKind,
+  systemCpu,
+  systemMemoryGb,
 }: StatusSectionViewInput) {
   const isRunning = Boolean(currentProcess);
   const perf = resolvePerformanceMetrics(metrics, gpus);
   return {
     backend: currentProcess?.backend,
-    compactMetrics: compactMetricViews(perf),
+    compactMetrics: compactMetricViews(perf, systemCpu, systemMemoryGb),
     displayPlatformKind: platformKind ?? null,
     displayPort: inferencePort || currentProcess?.port || undefined,
     isRunning,
@@ -176,12 +182,31 @@ function metricColumnViews(
 
 function compactMetricViews(
   perf: ReturnType<typeof resolvePerformanceMetrics>,
+  systemCpu: string | null | undefined,
+  systemMemoryGb: number | null | undefined,
 ): CompactMetricView[] {
+  const systemMetrics = [
+    systemMemoryGb && systemMemoryGb > 0 ? { label: "RAM", value: `${systemMemoryGb}G` } : null,
+    systemCpu ? systemCpuMetric(systemCpu) : null,
+  ].filter((metric): metric is CompactMetricView => Boolean(metric));
   return [
     { label: "Requests", value: `${perf.sessions}/${perf.peakReq || perf.sessions}` },
     { label: "VRAM", value: ratioMetric(perf.totalMemUsed, perf.vramCapacity, "G", 1) },
     { label: "Power", value: ratioMetric(perf.totalPower, perf.powerLimit, "W") },
+    ...systemMetrics,
   ];
+}
+
+function systemCpuMetric(cpu: string): CompactMetricView {
+  const separator = " · ";
+  const boundary = cpu.lastIndexOf(separator);
+  if (boundary < 0) return { label: "CPU", value: cpu };
+  return {
+    label: "CPU",
+    value: cpu.slice(boundary + separator.length),
+    detail: cpu.slice(0, boundary),
+    detailTitle: cpu,
+  };
 }
 
 function readField(metrics: Metrics | null, field: keyof Metrics): number | null {

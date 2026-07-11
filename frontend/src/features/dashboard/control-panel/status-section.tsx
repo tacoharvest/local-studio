@@ -19,6 +19,8 @@ interface StatusSectionProps {
   benchmarking: boolean;
   recipes?: RecipeWithStatus[];
   lifecycleStatus?: "idle" | "starting" | "ready" | "error";
+  systemCpu?: string | null;
+  systemMemoryGb?: number | null;
   onLaunch?: (recipeId: string) => Promise<void>;
   onNewRecipe?: () => void;
   onViewAll?: () => void;
@@ -38,6 +40,8 @@ export function StatusSection({
   benchmarking,
   recipes,
   lifecycleStatus = "idle",
+  systemCpu,
+  systemMemoryGb,
   onLaunch,
   onNewRecipe,
   onViewAll,
@@ -49,6 +53,8 @@ export function StatusSection({
     inferencePort,
     metrics,
     platformKind,
+    systemCpu,
+    systemMemoryGb,
   });
   const trendData = useMetricSamples(view.sampleInput);
 

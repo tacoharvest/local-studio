@@ -91,6 +91,27 @@ test("status metrics fall back to stored peaks when current session peaks are ab
   assert.equal(view.sampleInput.ttftPeak, 931.115);
 });
 
+test("selected controller host telemetry appears in the main status metrics", () => {
+  const view = resolveStatusSectionView({
+    currentProcess: null,
+    currentRecipe: null,
+    gpus: [],
+    metrics: null,
+    systemCpu: "AMD EPYC 7443P 24-Core Processor · 48 cores",
+    systemMemoryGb: 504,
+  });
+
+  assert.deepEqual(view.compactMetrics.slice(-2), [
+    { label: "RAM", value: "504G" },
+    {
+      label: "CPU",
+      value: "48 cores",
+      detail: "AMD EPYC 7443P 24-Core Processor",
+      detailTitle: "AMD EPYC 7443P 24-Core Processor · 48 cores",
+    },
+  ]);
+});
+
 test("turn command result parser preserves runtime status", () => {
   const payload = parseAgentTurnCommandResult({
     type: "command",

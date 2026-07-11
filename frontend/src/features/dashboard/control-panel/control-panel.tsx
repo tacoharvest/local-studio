@@ -19,10 +19,14 @@ const DOT_BY_STATE: Record<string, string> = {
 
 export function ControlPanel(props: DashboardLayoutProps) {
   const { currentProcess, currentRecipe, metrics, gpus, recipes } = props;
+  const controllerMatrix = useControllerMatrixStore();
+  const activeController = controllerMatrix.rows.find(
+    (controller) => controller.url === controllerMatrix.activeUrl,
+  );
 
   return (
     <div className="mx-auto w-full max-w-[86rem] px-1 pt-2">
-      <ControllerMatrix />
+      <ControllerMatrix matrix={controllerMatrix} />
       <StatusSection
         currentProcess={currentProcess}
         currentRecipe={currentRecipe}
@@ -37,6 +41,8 @@ export function ControlPanel(props: DashboardLayoutProps) {
         benchmarking={props.benchmarking}
         recipes={recipes}
         lifecycleStatus={props.lifecycleStatus}
+        systemCpu={activeController?.cpu ?? null}
+        systemMemoryGb={activeController?.memoryGb ?? null}
         onLaunch={props.onLaunch}
         onNewRecipe={props.onNewRecipe}
         onViewAll={props.onViewAll}
@@ -47,8 +53,8 @@ export function ControlPanel(props: DashboardLayoutProps) {
   );
 }
 
-function ControllerMatrix() {
-  const { rows, activeUrl, visible } = useControllerMatrixStore();
+function ControllerMatrix({ matrix }: { matrix: ReturnType<typeof useControllerMatrixStore> }) {
+  const { rows, activeUrl, visible } = matrix;
   if (!visible) return null;
   return (
     <section className="mb-3 border-b border-(--border)/35 pb-3">
@@ -112,19 +118,6 @@ function ControllerTab({
       {controller.nodeCount && controller.nodeCount > 1 ? (
         <span className="font-mono text-[length:var(--fs-2xs)] text-(--dim)">
           {controller.nodeCount} nodes
-        </span>
-      ) : null}
-      {controller.memoryGb ? (
-        <span className="font-mono text-[length:var(--fs-2xs)] text-(--dim)">
-          {controller.memoryGb}G RAM
-        </span>
-      ) : null}
-      {controller.cpu ? (
-        <span
-          className="max-w-[13rem] truncate text-[length:var(--fs-xs)] text-(--dim)"
-          title={controller.cpu}
-        >
-          {controller.cpu}
         </span>
       ) : null}
       <span className="font-mono text-[length:var(--fs-2xs)] uppercase tracking-wide text-(--dim)">
