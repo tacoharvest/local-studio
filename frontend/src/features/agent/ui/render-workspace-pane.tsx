@@ -112,6 +112,7 @@ function TerminalWorkspacePane({
   title,
   cwd,
   ownerKey,
+  resumeExpected,
   focused,
   canClose,
   onFocus,
@@ -121,6 +122,7 @@ function TerminalWorkspacePane({
   title: string;
   cwd: string | null;
   ownerKey: string;
+  resumeExpected: boolean;
   focused: boolean;
   canClose: boolean;
   onFocus: () => void;
@@ -151,7 +153,7 @@ function TerminalWorkspacePane({
           </button>
         ) : null}
       </header>
-      <TerminalPanel cwd={cwd} ownerKey={ownerKey} />
+      <TerminalPanel cwd={cwd} ownerKey={ownerKey} resumeExpected={resumeExpected} />
     </section>
   );
 }
@@ -174,6 +176,7 @@ export function renderWorkspacePane({
         title={pane.owner.title}
         cwd={pane.owner.cwd}
         ownerKey={pane.owner.mountKey}
+        resumeExpected={pane.resumeExpected === true}
         focused={state.focusedPaneId === paneId}
         canClose={canClose}
         onFocus={() => dispatch({ type: "focusPane", paneId })}

@@ -226,7 +226,7 @@ export function restorePersistedPaneState(raw: string): RestoredPaneState | null
     if (pane.kind === "terminal") {
       const owner = restoreTerminalOwner(pane);
       if (!owner) return null;
-      panesById.set(paneId, { kind: "terminal", owner });
+      panesById.set(paneId, { kind: "terminal", owner, resumeExpected: true });
       continue;
     }
     const rawTabs = Array.isArray(pane.tabs) ? pane.tabs : [];

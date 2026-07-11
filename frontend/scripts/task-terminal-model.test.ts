@@ -4,6 +4,7 @@ import test from "node:test";
 import { makeFreshTab } from "../src/features/agent/messages/helpers";
 import type { Project } from "../src/features/agent/projects/types";
 import { terminalOwnerFor, terminalKeysMatch } from "../src/features/agent/terminal-owners";
+import { terminalResumeNotice } from "../src/features/agent/ui/terminal-panel";
 import { collectLeaves } from "../src/features/agent/workspace/layout";
 import { openTerminalPane } from "../src/features/agent/workspace/pane-controller";
 import {
@@ -103,6 +104,15 @@ test("opening a terminal creates one durable workspace pane", () => {
   assert.equal(opened.panesById.get("p-terminal")?.kind, "terminal");
   assert.deepEqual(collectLeaves(reopened.layout), ["p-init", "p-terminal"]);
   assert.equal(reopened.focusedPaneId, "p-terminal");
+});
+
+test("restored terminals explain whether their PTY was resumed", () => {
+  assert.equal(terminalResumeNotice(true, true), "[resumed terminal session]");
+  assert.equal(
+    terminalResumeNotice(false, true),
+    "[previous terminal process is no longer running; started a new shell]",
+  );
+  assert.equal(terminalResumeNotice(false, false), null);
 });
 
 test("a task owns one stable terminal across runtime adoption", () => {

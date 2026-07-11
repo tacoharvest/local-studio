@@ -22,7 +22,15 @@ export function preloadTerminalPanel(): void {
   void import("@xterm/addon-web-links").catch(() => null);
 }
 
-export function TerminalPanel({ cwd, ownerKey }: { cwd: string | null; ownerKey: string }) {
+export function TerminalPanel({
+  cwd,
+  ownerKey,
+  resumeExpected = false,
+}: {
+  cwd: string | null;
+  ownerKey: string;
+  resumeExpected?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<TerminalRefs>({
     term: null,
@@ -37,6 +45,7 @@ export function TerminalPanel({ cwd, ownerKey }: { cwd: string | null; ownerKey:
     containerRef,
     cwd,
     ownerKey,
+    resumeExpected,
     stateRef,
   });
 
@@ -102,7 +111,15 @@ type PtyBootOptions = {
   element: HTMLDivElement;
   cwd: string | null;
   ownerKey: string;
+  resumeExpected: boolean;
 };
+
+export function terminalResumeNotice(reused: boolean, resumeExpected: boolean): string | null {
+  if (reused) return "[resumed terminal session]";
+  if (resumeExpected)
+    return "[previous terminal process is no longer running; started a new shell]";
+  return null;
+}
 
 function resolveTerminalFont(cssVar: (name: string) => string): string {
   const resolved = cssVar("--font-geist-mono") || "";
@@ -188,11 +205,13 @@ function useTerminalPanelEffects({
   containerRef,
   cwd,
   ownerKey,
+  resumeExpected,
   stateRef,
 }: {
   containerRef: RefObject<HTMLDivElement | null>;
   cwd: string | null;
   ownerKey: string;
+  resumeExpected: boolean;
   stateRef: RefObject<TerminalRefs>;
 }): void {
   useMountSubscription(() => {
@@ -238,7 +257,16 @@ function useTerminalPanelEffects({
       const pty = getPtyBridge();
       if (pty) {
         try {
-          cleanupTerminal = await bootPty({ pty, term, fit, refs, element, cwd, ownerKey });
+          cleanupTerminal = await bootPty({
+            pty,
+            term,
+            fit,
+            refs,
+            element,
+            cwd,
+            ownerKey,
+            resumeExpected,
+          });
         } catch (error) {
           const reason = error instanceof Error ? error.message : "unknown";
           term.writeln(`\x1b[33mPTY unavailable: ${reason}\x1b[0m`);
@@ -265,7 +293,7 @@ function useTerminalPanelEffects({
       refs.fit = null;
       refs.applyResize = null;
     };
-  }, [containerRef, cwd, ownerKey, stateRef]);
+  }, [containerRef, cwd, ownerKey, resumeExpected, stateRef]);
 
   useMountSubscription(
     () =>
@@ -287,6 +315,7 @@ async function bootPty({
   element,
   cwd,
   ownerKey,
+  resumeExpected,
 }: PtyBootOptions): Promise<() => void> {
   const { cols, rows } = term;
   let currentId: string | null = null;
@@ -312,13 +341,19 @@ async function bootPty({
       `\r\n\x1b[90m[process exited: code=${info.exitCode}${info.signal ? ` signal=${info.signal}` : ""}]\x1b[0m`,
     );
   });
-  const { id, replay } = await pty.open({ cwd: cwd ?? undefined, cols, rows, ownerKey });
+  const {
+    id,
+    replay,
+    reused = false,
+  } = await pty.open({ cwd: cwd ?? undefined, cols, rows, ownerKey });
   if (refs.disposed) {
     dataDisposer();
     exitDisposer();
     return () => {};
   }
   currentId = id;
+  const notice = terminalResumeNotice(reused, resumeExpected);
+  if (notice) term.writeln(`\x1b[90m${notice}\x1b[0m`);
   if (replay) term.write(replay);
   for (const item of queuedData) {
     if (item.sessionId === id && !refs.disposed) term.write(item.chunk);

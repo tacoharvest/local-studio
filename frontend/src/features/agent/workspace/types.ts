@@ -20,6 +20,7 @@ export type ChatPaneState = {
 export type TerminalPaneState = {
   kind: "terminal";
   owner: TerminalOwner;
+  resumeExpected?: boolean;
 };
 
 export type PaneState = ChatPaneState | TerminalPaneState;
