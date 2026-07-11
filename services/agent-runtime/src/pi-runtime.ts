@@ -18,7 +18,11 @@ import {
   type RuntimeStartOptions,
 } from "./pi-runtime-helpers";
 import { refreshPiModels, resolvePiModelSelection } from "./pi-runtime-models";
-import { findRuntimeSessionForLookup, piStatusFromEvents } from "./pi-runtime-state";
+import {
+  findRuntimeSessionForLookup,
+  findRuntimeSessionForPrompt,
+  piStatusFromEvents,
+} from "./pi-runtime-state";
 import { findSessionFile } from "./sessions-store";
 import { getGlobalSingleton } from "./instances";
 import { connectorsRevisionSync } from "./connectors-service";
@@ -445,6 +449,18 @@ class PiRuntimeManager {
   ): { sessionId: string; session: PiAgentSession } {
     return (
       this.findSessionForLookup(sessionId, piSessionId) ?? {
+        sessionId,
+        session: this.getSession(sessionId),
+      }
+    );
+  }
+
+  getSessionForPrompt(
+    sessionId = DEFAULT_SESSION_ID,
+    piSessionId?: string | null,
+  ): { sessionId: string; session: PiAgentSession } {
+    return (
+      findRuntimeSessionForPrompt(this.listSessions(), sessionId, piSessionId) ?? {
         sessionId,
         session: this.getSession(sessionId),
       }

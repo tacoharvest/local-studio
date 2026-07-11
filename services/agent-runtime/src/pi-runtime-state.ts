@@ -26,6 +26,22 @@ export function findRuntimeSessionForLookup<
   return null;
 }
 
+export function findRuntimeSessionForPrompt<
+  TSession extends { status: { active?: boolean; piSessionId?: string | null } },
+>(
+  entries: Iterable<RuntimeLookupEntry<TSession>>,
+  sessionId: string,
+  piSessionId?: string | null,
+): RuntimeLookupEntry<TSession> | null {
+  const snapshot = [...entries];
+  const exact = snapshot.find((entry) => entry.sessionId === sessionId);
+  const target = piSessionId?.trim();
+  if (exact?.session.status.active || !target || exact?.session.status.piSessionId === target) {
+    return exact ?? null;
+  }
+  return snapshot.find((entry) => entry.session.status.piSessionId === target) ?? exact ?? null;
+}
+
 export function piStatusFromEvents(input: {
   running: boolean;
   activePromptCount: number;

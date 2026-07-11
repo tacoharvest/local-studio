@@ -12,7 +12,10 @@ import {
   selectedContextPrompt,
 } from "@/features/agent/composer-context";
 import { parseAgentTurnCommandResult } from "@/features/agent/contracts";
-import { findRuntimeSessionForLookup } from "@local-studio/agent-runtime/pi-runtime-state";
+import {
+  findRuntimeSessionForLookup,
+  findRuntimeSessionForPrompt,
+} from "@local-studio/agent-runtime/pi-runtime-state";
 import { piStatusFromEvents } from "@local-studio/agent-runtime/pi-runtime-state";
 import { shouldRestartAfterPromptError } from "@local-studio/agent-runtime/pi-runtime";
 import { inferVisionSupport, normalizeOpenAIModels } from "@/features/agent/models";
@@ -448,6 +451,33 @@ test("runtime lookup prefers the exact local session over an older pi match", ()
   ];
 
   const resolved = findRuntimeSessionForLookup(sessions, "rt-current", "pi-shared");
+
+  assert.equal(resolved?.session.marker, "current");
+});
+
+test("prompt lookup reuses the durable runtime instead of allocating another tab owner", () => {
+  const durable = { status: { active: false, piSessionId: "pi-durable" }, marker: "durable" };
+  const sessions = [{ sessionId: "tab-original", session: durable }];
+
+  const resolved = findRuntimeSessionForPrompt(sessions, "tab-reopened", "pi-durable");
+
+  assert.equal(resolved?.session, durable);
+  assert.equal(resolved?.sessionId, "tab-original");
+});
+
+test("prompt lookup never redirects an active exact runtime", () => {
+  const sessions = [
+    {
+      sessionId: "tab-current",
+      session: { status: { active: true, piSessionId: "pi-current" }, marker: "current" },
+    },
+    {
+      sessionId: "tab-old",
+      session: { status: { active: false, piSessionId: "pi-requested" }, marker: "old" },
+    },
+  ];
+
+  const resolved = findRuntimeSessionForPrompt(sessions, "tab-current", "pi-requested");
 
   assert.equal(resolved?.session.marker, "current");
 });
