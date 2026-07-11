@@ -62,7 +62,7 @@ export function AgentComposerActions({
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={readingAttachments || running}
-        className="inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md text-(--dim)/75 hover:bg-(--hover) hover:text-(--fg)/85 disabled:opacity-30"
+        className="agent-composer-attach inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md text-(--dim)/75 hover:bg-(--hover) hover:text-(--fg)/85 disabled:opacity-30"
         aria-label="Attach files"
         title="Attach files (or paste/drop into composer)"
       >
@@ -78,7 +78,7 @@ export function AgentComposerActions({
             ? "Browser tool: ON — agent can drive the browser"
             : "Browser tool: OFF — click to let the agent navigate, click, fill, and read pages"
         }
-        className={`inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${browserToolEnabled ? activeIconClass : inactiveIconClass}`}
+        className={`agent-composer-browser inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${browserToolEnabled ? activeIconClass : inactiveIconClass}`}
       >
         <span className="relative inline-flex">
           <GlobeIcon className="h-3.5 w-3.5" />
@@ -89,7 +89,7 @@ export function AgentComposerActions({
           type="button"
           onClick={onToggleBrowserBackend}
           aria-label={`Browser backend: ${browserBackendLabel}. Switch to ${browserBackendTarget}.`}
-          className={`inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${usingSitegeist ? activeIconClass : inactiveIconClass}`}
+          className={`agent-composer-browser-backend inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${usingSitegeist ? activeIconClass : inactiveIconClass}`}
           title={`Browser: ${browserBackendLabel}. Click to use ${browserBackendTarget}.`}
         >
           {usingSitegeist ? (
@@ -109,13 +109,15 @@ export function AgentComposerActions({
             ? "Canvas: ON — shared scratchboard tools loaded; model reads/writes the canvas"
             : "Canvas: OFF — click to share a scratchboard with the model (notes, plans, links, state)"
         }
-        className={`inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${canvasEnabled ? activeIconClass : inactiveIconClass}`}
+        className={`agent-composer-canvas inline-flex !h-7 !min-h-7 !w-7 !min-w-7 shrink-0 items-center justify-center rounded-md ${canvasEnabled ? activeIconClass : inactiveIconClass}`}
       >
         <Code2 className="h-3.5 w-3.5" />
       </button>
-      {pluginSelector}
+      {pluginSelector ? (
+        <div className="agent-composer-plugin shrink-0">{pluginSelector}</div>
+      ) : null}
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        {modelSelector}
+        {modelSelector ? <div className="agent-composer-model min-w-0">{modelSelector}</div> : null}
         {running ? (
           <>
             {starting ? (

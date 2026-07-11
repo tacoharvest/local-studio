@@ -24,9 +24,9 @@ export function AgentComposerStatusBar({
   const displayCwd = formatHomeRelativePath(cwd);
 
   return (
-    <div className="relative z-20 mx-auto mt-2.5 flex w-full max-w-[var(--composer-w)] items-center gap-2 overflow-visible font-mono text-[length:var(--fs-xs)] text-(--dim)">
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
-        <div className="min-w-0 max-w-[42%] shrink overflow-visible">
+    <div className="agent-composer-meta relative z-20 mx-auto mt-2.5 flex w-full max-w-[var(--composer-w)] items-center gap-2 overflow-hidden font-mono text-[length:var(--fs-xs)] text-(--dim)">
+      <div className="agent-composer-meta-main flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+        <div className="agent-composer-project min-w-0 shrink">
           {displayCwd ? (
             <span className="block min-w-0 truncate text-(--dim)" title={cwd}>
               {displayCwd}
@@ -56,7 +56,7 @@ function GitBranchState({
 }) {
   if (gitBranch) {
     return (
-      <span className="inline-flex min-w-0 shrink items-center gap-1 text-(--dim)">
+      <span className="agent-composer-branch inline-flex min-w-0 shrink items-center gap-1 text-(--dim)">
         <GitBranchIcon className="h-3 w-3 shrink-0" />
         <span className="truncate">{gitBranch}</span>
       </span>
@@ -84,7 +84,7 @@ function GitSummaryState({ gitSummary }: { gitSummary?: GitSummary | null }) {
   if (!gitSummary?.isRepo) return null;
 
   return (
-    <span className="inline-flex shrink-0 items-center gap-1">
+    <span className="agent-composer-git-summary inline-flex shrink-0 items-center gap-1">
       <span className="text-(--ok)">+{gitSummary.additions}</span>
       <span className="text-(--err)">-{gitSummary.deletions}</span>
       {gitSummary.statusCount > 0 ? (
@@ -109,7 +109,7 @@ function ContextReadout({
     <button
       type="button"
       onClick={onClick}
-      className="ml-auto inline-flex shrink-0 items-center rounded-sm px-1 text-(--dim) hover:text-(--fg)/80"
+      className="agent-composer-tokens ml-auto inline-flex shrink-0 items-center rounded-sm px-1 text-(--dim) hover:text-(--fg)/80"
       title={title}
       aria-label={title}
     >

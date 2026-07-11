@@ -597,13 +597,19 @@
   white-space: nowrap;
 }
 
-@container (max-width: 560px) {
-  .agent-composer-actions-row {
-    flex-wrap: wrap;
+@container (max-width: 38rem) {
+  .agent-composer-model,
+  .agent-composer-plugin {
+    display: none;
   }
 }
 
-@container (max-width: 520px) {
+@container (max-width: 32rem) {
+  .agent-composer-canvas,
+  .agent-composer-browser-backend {
+    display: none;
+  }
+
   .agent-composer-meta-main {
     flex-basis: 100%;
   }
@@ -623,6 +629,12 @@
   .agent-composer-tokens {
     margin-left: auto;
     max-width: 100%;
+  }
+}
+
+@container (max-width: 26rem) {
+  .agent-composer-browser {
+    display: none;
   }
 }
 
