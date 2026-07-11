@@ -270,13 +270,16 @@ export function sessionMetaForPersistence(
     queue: tab.queue,
   };
   if (selection) {
+    const skills = Array.isArray(selection.skills) ? selection.skills : [];
+    const promptTemplates = Array.isArray(selection.promptTemplates)
+      ? selection.promptTemplates
+      : [];
+    const plugins = Array.isArray(selection.plugins) ? selection.plugins : [];
     return {
       ...base,
-      ...(selection.skills.length > 0 ? { skills: selection.skills } : {}),
-      ...(selection.promptTemplates.length > 0
-        ? { promptTemplates: selection.promptTemplates }
-        : {}),
-      ...(selection.plugins.length > 0 ? { plugins: selection.plugins } : {}),
+      ...(skills.length > 0 ? { skills } : {}),
+      ...(promptTemplates.length > 0 ? { promptTemplates } : {}),
+      ...(plugins.length > 0 ? { plugins } : {}),
     };
   }
   return base;

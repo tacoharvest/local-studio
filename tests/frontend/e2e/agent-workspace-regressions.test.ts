@@ -150,6 +150,7 @@ test("pane state round-trips durable session metadata and drops transcripts", ()
   const selection: ToolSelection = {
     skills: [{ id: "skill-1", name: "Skill One" }],
     promptTemplates: [],
+    plugins: [],
   };
 
   writePaneState(storage, state, (sessionId) => (sessionId === rich.id ? selection : null));
