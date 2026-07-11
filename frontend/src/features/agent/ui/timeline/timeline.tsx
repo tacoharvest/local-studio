@@ -1,25 +1,12 @@
 "use client";
 
 import { memo, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { AssistantBlock, ChatMessage } from "@/features/agent/messages";
+import type { ChatMessage } from "@/features/agent/messages";
 import { SessionPaneBlockRouter } from "@/features/agent/ui/timeline/session-pane-block-router";
 import { AgentEmptyPrompt } from "@/features/agent/ui/agent-empty-prompt";
 import { ChevronDownIcon } from "@/ui/icons";
 import { useMountSubscription } from "@/hooks/use-mount-subscription";
-
-// Mirrors `groupAssistantBlocks`: a message renders something only if it has a
-// non-empty text block or any tool/thinking/event block. Assistant messages
-// that produce nothing (e.g. only whitespace text from a stream) would still
-// emit an empty article plus the wrapper's top padding, leaving a blank gap.
-function messageRenders(message: ChatMessage): boolean {
-  if (message.role === "system") return false;
-  if (message.role === "user") {
-    return message.text.trim().length > 0 || Boolean(message.attachments?.length);
-  }
-  return (message.blocks ?? []).some((block: AssistantBlock) =>
-    block.kind === "text" ? block.text.trim() !== "" : true,
-  );
-}
+import { messageRenders } from "@/features/agent/ui/timeline/message-visibility";
 
 type TimelineProps = {
   messages: ChatMessage[];

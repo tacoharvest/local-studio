@@ -10,6 +10,7 @@ import {
   assistantContentCopyText,
   groupAssistantBlocks,
 } from "@/features/agent/ui/timeline/activity-grouping";
+import { assistantBlocksForMessage } from "@/features/agent/ui/timeline/message-visibility";
 
 // Per-content-block memo. `appendDelta` preserves the reference of every
 // non-trailing text block during streaming, so prior content blocks skip
@@ -31,8 +32,6 @@ function EventBlockView({ block }: { block: EventBlock }) {
 const MemoEventBlock = memo(function MemoEventBlock({ block }: { block: EventBlock }) {
   return <EventBlockView block={block} />;
 });
-
-const EMPTY_BLOCKS: AssistantBlock[] = [];
 
 // `AssistantBlocks` isolates the (memoised) routed-block computation so that
 // re-renders triggered by non-block message fields (e.g. `text`, `timestamp`,
@@ -125,7 +124,7 @@ function SessionPaneBlockRouterInner({
 
   return (
     <AssistantBlocks
-      blocks={message.blocks ?? EMPTY_BLOCKS}
+      blocks={assistantBlocksForMessage(message)}
       live={live}
       running={running}
       onForkSession={onForkSession}
