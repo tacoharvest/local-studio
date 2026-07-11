@@ -161,7 +161,7 @@ function ScrollToBottomButton({ running, onClick }: { running: boolean; onClick:
     <button
       type="button"
       onClick={onClick}
-      className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-(--border) bg-(--color-popover) px-3 py-1 text-[length:var(--fs-xs)] text-(--fg)/85 shadow-[0_6px_20px_rgba(0,0,0,0.35)] transition-colors hover:text-(--fg)"
+      className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-(--border) bg-(--color-popover) px-3 py-1 text-[length:var(--fs-xs)] text-(--fg)/85 shadow-(--shadow-pill) transition-colors hover:text-(--fg)"
       aria-label="Scroll to latest"
     >
       {running ? "New messages" : "Latest"}
