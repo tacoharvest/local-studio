@@ -95,3 +95,37 @@ test("message_end applies the settled content even if marginally shorter", () =>
   const text = session.messages.find((m) => m.id === "a1")?.text ?? "";
   assert.ok(text.includes("answer"), "settled final content rendered");
 });
+
+test("reasoning snapshots advance monotonically beside tool calls", () => {
+  const ctx: SessionStreamContext = { liveAssistantIds: new Map() };
+  let session: Session = {
+    id: "s-1",
+    piSessionId: "pi-1",
+    title: "t",
+    messages: [{ id: "a1", role: "assistant", text: "", blocks: [], timestamp: "" }],
+    status: "running",
+    error: "",
+    input: "",
+    activeAssistantId: "a1",
+  };
+  const update = (reasoning: string) => {
+    session = reduceSessionEvent(session, ctx, {
+      type: "message_update",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "reasoning", reasoning },
+          { type: "toolCall", id: "call-1", name: "bash", arguments: { command: "pwd" } },
+        ],
+      },
+    });
+  };
+
+  update("long reasoning that must remain visible");
+  update("short");
+  const thinking = session.messages[0]?.blocks?.find((block) => block.kind === "thinking");
+  assert.equal(
+    thinking?.kind === "thinking" ? thinking.text : "",
+    "long reasoning that must remain visible",
+  );
+});

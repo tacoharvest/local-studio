@@ -413,6 +413,8 @@ function contentPayloadLength(content: Array<Record<string, unknown>>): number {
     total += 1;
     if (typeof part.text === "string") total += part.text.length;
     if (typeof part.thinking === "string") total += part.thinking.length;
+    if (typeof part.reasoning === "string") total += part.reasoning.length;
+    if (typeof part.reasoning_content === "string") total += part.reasoning_content.length;
     const args = part.arguments;
     if (typeof args === "string") {
       total += args.length;

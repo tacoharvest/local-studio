@@ -22,6 +22,7 @@ import {
   ensureStreamingUsageIncluded,
   extractSessionId,
   findRecipeByModel,
+  normalizeDeepSeekV4Thinking,
   type OpenAIUsage,
 } from "./chat-request";
 import { buildChatCompletionsStreamResponse } from "./chat-completions-stream";
@@ -95,6 +96,9 @@ export const registerOpenAIRoutes: RouteRegistrar = (app, context) => {
             bodyChanged = true;
           }
         }
+      }
+      if (normalizeDeepSeekV4Thinking(parsed, matchedRecipe)) {
+        bodyChanged = true;
       }
       if (parsed["functions"] || parsed["tools"] !== undefined) {
         bodyChanged = true;

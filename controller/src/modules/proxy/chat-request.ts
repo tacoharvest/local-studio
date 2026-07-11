@@ -143,3 +143,21 @@ export const ensureStreamingUsageIncluded = (payload: Record<string, unknown>): 
   };
   return true;
 };
+
+export const normalizeDeepSeekV4Thinking = (
+  payload: Record<string, unknown>,
+  recipe: Pick<Recipe, "reasoning_parser"> | null,
+): boolean => {
+  if ((recipe?.reasoning_parser ?? "").toLowerCase() !== "deepseek_v4") return false;
+  const thinking = payload["thinking"];
+  if (!thinking || typeof thinking !== "object" || Array.isArray(thinking)) return false;
+  const enabled = (thinking as Record<string, unknown>)["type"] === "enabled";
+  const current = payload["chat_template_kwargs"];
+  const kwargs =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  if (kwargs["thinking"] === enabled && kwargs["enable_thinking"] === enabled) return false;
+  payload["chat_template_kwargs"] = { ...kwargs, thinking: enabled, enable_thinking: enabled };
+  return true;
+};

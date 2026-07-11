@@ -33,6 +33,26 @@ import type {
   PiContextUsage,
 } from "./pi-runtime-types";
 
+const LOCAL_PROVIDER_TIMEOUT_MS = 3_600_000;
+
+export function applyLocalProviderSettings(
+  settingsManager: { applyOverrides: (settings: Record<string, unknown>) => void },
+): void {
+  settingsManager.applyOverrides({
+    httpIdleTimeoutMs: LOCAL_PROVIDER_TIMEOUT_MS,
+    retry: {
+      enabled: true,
+      maxRetries: 1,
+      baseDelayMs: 1_000,
+      provider: {
+        timeoutMs: LOCAL_PROVIDER_TIMEOUT_MS,
+        maxRetries: 0,
+        maxRetryDelayMs: 60_000,
+      },
+    },
+  });
+}
+
 type PiEvent = LoggedPiEvent["event"];
 
 function runtimeFingerprint(
@@ -157,6 +177,7 @@ class PiSdkSession extends EventEmitter implements PiAgentSession {
                         }),
                       catch: (error) => error,
                     });
+                    applyLocalProviderSettings(services.settingsManager);
                     const model = services.modelRegistry.find(providerId, backendModelId);
                     if (!model) {
                       return yield* Effect.fail(

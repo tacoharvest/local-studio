@@ -17,7 +17,10 @@ import {
   findRuntimeSessionForPrompt,
 } from "@local-studio/agent-runtime/pi-runtime-state";
 import { piStatusFromEvents } from "@local-studio/agent-runtime/pi-runtime-state";
-import { shouldRestartAfterPromptError } from "@local-studio/agent-runtime/pi-runtime";
+import {
+  applyLocalProviderSettings,
+  shouldRestartAfterPromptError,
+} from "@local-studio/agent-runtime/pi-runtime";
 import { inferVisionSupport, normalizeOpenAIModels } from "@/features/agent/models";
 import { modelsToPiModels } from "@local-studio/agent-runtime/pi-runtime-models";
 import { applyAssistantPiEventToBlocks } from "@/features/agent/messages/block-event";
@@ -114,6 +117,20 @@ test("invalid assistant continuations restart with a fresh Pi session", () => {
     true,
   );
   assert.equal(shouldRestartAfterPromptError(new Error("Upstream connection failed")), false);
+});
+
+test("local providers use a long idle deadline with bounded retries", () => {
+  let applied: Record<string, unknown> | null = null;
+  applyLocalProviderSettings({ applyOverrides: (settings) => (applied = settings) });
+  assert.deepEqual(applied, {
+    httpIdleTimeoutMs: 3_600_000,
+    retry: {
+      enabled: true,
+      maxRetries: 1,
+      baseDelayMs: 1_000,
+      provider: { timeoutMs: 3_600_000, maxRetries: 0, maxRetryDelayMs: 60_000 },
+    },
+  });
 });
 
 test("new chat url navigation opens a fresh runtime in a new split pane", () => {
