@@ -171,7 +171,7 @@ function ScrollToBottomButton({ running, onClick }: { running: boolean; onClick:
 }
 
 const PROMPT_MARKER_HEIGHT_PX = 16;
-const PROMPT_MARKER_GAP_PX = 10;
+const PROMPT_MARKER_GAP_PX = 4;
 const PROMPT_MARKER_MAX_RATIO = 0.6;
 
 type PromptMarkerEntry = {
