@@ -375,7 +375,7 @@ export function useSessionEngine(deps: UseSessionEngineDeps): SessionEngine {
               api.compactSession({
                 sessionId: session.id,
                 modelId,
-                cwd: cwd.trim() || undefined,
+                cwd: session.cwd || cwd.trim() || undefined,
                 piSessionId: session.piSessionId,
                 browserToolEnabled,
                 browserSessionId: session.id,
