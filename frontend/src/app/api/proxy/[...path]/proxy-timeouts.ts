@@ -4,6 +4,7 @@ const SYSTEM_UPSTREAM_TIMEOUT_MS = 20_000;
 const CHAT_COMPLETION_UPSTREAM_TIMEOUT_MS = 600_000;
 const SSE_CONNECT_TIMEOUT_MS = 5_000;
 const SPEECH_GENERATION_TIMEOUT_MS = 360_000;
+const LAUNCH_UPSTREAM_TIMEOUT_MS = 1_800_000;
 const VOICE_REFERENCE_TIMEOUT_MS = 120_000;
 const POST_TIMEOUTS = new Map([
   ["studio/downloads", DOWNLOAD_UPSTREAM_TIMEOUT_MS],
@@ -41,6 +42,9 @@ export function getUpstreamTimeoutMs(path: string[], method = "GET"): number {
   }
   if (route.startsWith("runtime/")) {
     return SYSTEM_UPSTREAM_TIMEOUT_MS;
+  }
+  if (route.startsWith("launch/")) {
+    return LAUNCH_UPSTREAM_TIMEOUT_MS;
   }
   return DEFAULT_UPSTREAM_TIMEOUT_MS;
 }
