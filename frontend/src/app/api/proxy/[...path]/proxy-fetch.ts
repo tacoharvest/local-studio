@@ -134,7 +134,13 @@ export function buildProxyRequestHeaders(
   if (accept) headers.set("Accept", accept);
   if (contentType) headers.set("Content-Type", contentType);
   if (suppressAuth) return headers;
-  if (incomingAuth) headers.set("Authorization", incomingAuth);
+  // Only forward incoming Authorization if it is a Bearer credential.
+  // On origins gated by nginx basic auth (Authorization: Basic ...), the
+  // browser attaches Basic to every same-origin XHR — including our
+  // /api/proxy/* calls. If we forward that as-is to the controller, the
+  // controller sees Basic instead of the configured Bearer and rejects.
+  const incomingBearer = incomingAuth && /^Bearer\s+/i.test(incomingAuth);
+  if (incomingBearer) headers.set("Authorization", incomingAuth!);
   else if (allowQueryApiKey && apiKeyQuery) headers.set("Authorization", `Bearer ${apiKeyQuery}`);
   else if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
   else if (apiKeyQuery) headers.set("Authorization", `Bearer ${apiKeyQuery}`);
