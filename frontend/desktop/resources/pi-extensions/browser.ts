@@ -7,6 +7,10 @@ type ToolResult = {
 };
 
 const FRONTEND_BASE = process.env.LOCAL_STUDIO_FRONTEND_BASE ?? "http://127.0.0.1:3000";
+const STUDIO_TOKEN = process.env.LOCAL_STUDIO_TOKEN ?? "";
+function studioAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
+  return STUDIO_TOKEN ? { ...base, "x-local-studio-token": STUDIO_TOKEN } : base;
+}
 const BROWSER_SESSION_ID = process.env.LOCAL_STUDIO_BROWSER_SESSION_ID ?? "";
 const DEFAULT_BROWSER_TOOL_TIMEOUT_MS = 60_000;
 
@@ -44,7 +48,7 @@ async function callBrowserAction(
   if (signal.aborted) controller.abort();
   const response = await fetch(`${FRONTEND_BASE}/api/agent/browser/${verb}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: studioAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(
       BROWSER_SESSION_ID ? { ...payload, sessionId: BROWSER_SESSION_ID } : payload,
     ),

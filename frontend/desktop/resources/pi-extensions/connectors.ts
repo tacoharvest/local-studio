@@ -17,6 +17,10 @@ type ToolResult = {
 };
 
 const FRONTEND_BASE = process.env.LOCAL_STUDIO_FRONTEND_BASE ?? "http://127.0.0.1:3000";
+const STUDIO_TOKEN = process.env.LOCAL_STUDIO_TOKEN ?? "";
+function studioAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
+  return STUDIO_TOKEN ? { ...base, "x-local-studio-token": STUDIO_TOKEN } : base;
+}
 const CALL_TIMEOUT_MS = 120_000;
 
 interface InventoryTool {
@@ -39,7 +43,11 @@ const textResult = (text: string, details: Record<string, unknown>): ToolResult 
 
 /** Render an MCP tools/call result (content blocks) as plain text. */
 const renderMcpResult = (result: unknown): string => {
-  if (result && typeof result === "object" && Array.isArray((result as { content?: unknown[] }).content)) {
+  if (
+    result &&
+    typeof result === "object" &&
+    Array.isArray((result as { content?: unknown[] }).content)
+  ) {
     const blocks = (result as { content: Array<{ type?: string; text?: string }> }).content;
     const texts = blocks
       .map((block) => (block.type === "text" && block.text ? block.text : JSON.stringify(block)))
@@ -63,7 +71,7 @@ async function callConnectorTool(
   try {
     const response = await fetch(`${FRONTEND_BASE}/api/agent/connectors/call`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: studioAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ connector_id: connectorId, tool, args }),
       signal: controller.signal,
     });

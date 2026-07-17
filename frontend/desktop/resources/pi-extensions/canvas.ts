@@ -13,6 +13,10 @@ type ToolResult = {
 };
 
 const FRONTEND_BASE = process.env.LOCAL_STUDIO_FRONTEND_BASE ?? "http://127.0.0.1:3000";
+const STUDIO_TOKEN = process.env.LOCAL_STUDIO_TOKEN ?? "";
+function studioAuthHeaders(base: Record<string, string> = {}): Record<string, string> {
+  return STUDIO_TOKEN ? { ...base, "x-local-studio-token": STUDIO_TOKEN } : base;
+}
 const CANVAS_TOOL_TIMEOUT_MS = 20_000;
 
 function result(text: string, details: Record<string, unknown> = {}): ToolResult {
@@ -31,7 +35,10 @@ async function callCanvas(
   if (signal.aborted) controller.abort();
   const response = await fetch(`${FRONTEND_BASE}/api/agent/canvas`, {
     method,
-    headers: method === "POST" ? { "Content-Type": "application/json" } : undefined,
+    headers:
+      method === "POST"
+        ? studioAuthHeaders({ "Content-Type": "application/json" })
+        : studioAuthHeaders(),
     body: body ? JSON.stringify(body) : undefined,
     signal: controller.signal,
   }).finally(() => {
