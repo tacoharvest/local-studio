@@ -318,7 +318,7 @@ function runtimeEnvInjections(
     LOCAL_STUDIO_BROWSER_SESSION_ID: options.browserSessionId ?? "",
     LOCAL_STUDIO_PLAN_SESSION_ID: options.planSessionId ?? "",
     LOCAL_STUDIO_FRONTEND_BASE: frontendBase,
-    LOCAL_STUDIO_TOKEN: env.LOCAL_STUDIO_TOKEN ?? "",
+    LOCAL_STUDIO_TOKEN: env.LOCAL_STUDIO_FRONTEND_TOKEN ?? env.LOCAL_STUDIO_TOKEN ?? "",
     SITEGEIST_RELAY_URL: env.SITEGEIST_RELAY_URL ?? relay.SITEGEIST_RELAY_URL ?? "",
     SITEGEIST_RELAY_TOKEN: env.SITEGEIST_RELAY_TOKEN ?? relay.SITEGEIST_RELAY_TOKEN ?? "",
     SITEGEIST_RELAY_SESSION_ID: options.browserSessionId ?? "",
